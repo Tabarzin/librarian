@@ -1,0 +1,331 @@
+{
+  "name": "ТестВектор",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Trigger').item.json.message.text }}",
+        "options": {
+          "systemPromptTemplate": "Ты — интеллектуальный исследователь-аналитик. Твоя цель — не просто найти факты в тексте, а синтезировать из них глубокий, инсайтный ответ, который заставит читателя задуматься.\n\nИНСТРУКЦИИ ПО АНАЛИЗУ:\n1. Проанализируй предоставленный контекст ({context}). Отбрось нерелевантный шум.\n2. Не пересказывай текст механически. Ищи скрытые связи, парадоксы или неочевидные выводы.\n3. Твой ответ должен давать \"инсайт\" — показывать проблему с новой стороны, объяснять \"почему это важно\", а не только \"что это такое\".\n4. Если в контексте есть противоречия или разные точки зрения — обязательно подсвети их. Это создает глубину.\n\nФОРМАТ ОТВЕТА:\n1. Объем: не более 400 слов.  Это жесткое ограничение. Пиши емко, без воды.\n2. Структура (обязательно соблюдай этот скелет):\n   - Начни с сильного тезиса или главного вывода (1-2 предложения).\n   - Основная часть: раскрытие темы, аргументы, примеры из текста.\n   - Используй списки (•) для перечисления, но каждый пункт должен быть смысловым, а не просто копипастой.\n   - Финал: краткое резюме или вопрос, побуждающий к размышлению.\n3. Стиль: Живой, экспертный, но понятный. Избегай канцеляризма. Используй форматирование (жирный шрифт для акцентов), чтобы текст \"дышал\".\n\nВАЖНО: Отвечай ТОЛЬКО на основе контекста. Если информации недостаточно для глубокого анализа, честно скажи об этом, но предложи гипотезу на основе того, что есть."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+      "typeVersion": 1.6,
+      "position": [
+        512,
+        32
+      ],
+      "id": "378fb2b5-a581-4bae-a491-04fb8a3880b4",
+      "name": "Question and Answer Chain",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxOutputTokens": 2048,
+          "temperature": 0.1,
+          "topK": 40
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        544,
+        432
+      ],
+      "id": "4209cd2b-d2f4-4505-a28a-68019d7a45ef",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "bh1l76toUEd851mG",
+          "name": "Google Gemini(PaLM) Api account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topK": 15
+      },
+      "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+      "typeVersion": 1,
+      "position": [
+        752,
+        272
+      ],
+      "id": "a22cdf4d-366f-4ea1-b386-dced8afc14fe",
+      "name": "Vector Store Retriever"
+    },
+    {
+      "parameters": {
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        512
+      ],
+      "id": "9f69a45f-c17d-4ec3-9c40-3947b46583df",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "FDT3jC8ugmliwITS",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {
+          "dimensions": 1536
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        832
+      ],
+      "id": "9ec7a055-6134-4204-82b4-db48d43692e8",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "vS11ggrAYEjY5yMC",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        48
+      ],
+      "id": "2795c9a0-585c-45b4-90e3-b6abbd34ad5b",
+      "name": "Telegram Trigger",
+      "webhookId": "570b461f-98b7-4977-a321-d45cba0bc531",
+      "credentials": {
+        "telegramApi": {
+          "id": "kYCHD2RTPVr6wdP2",
+          "name": "Vector Librarian Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "К сожалению, произошла чудовищная ошибка...",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        96
+      ],
+      "id": "79ef2cca-e7b9-4ea3-8df8-f0dba743afb5",
+      "name": "Send a text message1",
+      "webhookId": "b5504861-cc27-4fe8-8388-8abb1aba7b39",
+      "credentials": {
+        "telegramApi": {
+          "id": "kYCHD2RTPVr6wdP2",
+          "name": "Vector Librarian Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n\n\n\nconst items = $input.all();\nreturn items.map(item => {\n let text = item.json.response || item.json.text || \"\";\n\n  // ... ваш код очистки HTML ...\n\nconst MAX_LENGTH = 3800; // Telegram лимит 4096, оставляем запас\n\nif (text.length > MAX_LENGTH) {\n    // Обрезаем аккуратно по последней точке перед лимитом, чтобы не рвать фразу\n    let trimmed = text.substring(0, MAX_LENGTH);\n    let lastDot = trimmed.lastIndexOf(\".\");\n    \n    if (lastDot > MAX_LENGTH - 500) { // Если точка нашлась недалеко от конца\n        text = trimmed.substring(0, lastDot + 1);\n    } else {\n        text = trimmed; // Если точек нет, режем жестко\n    }\n    \n    text += \"\\n\\n<i>(Ответ был сокращен из-за ограничений Telegram. Попробуйте уточнить вопрос.)</i>\";\n}\n\n\n  // 1. Экранируем существующие HTML символы, чтобы не сломать разметку\n  text = text\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\");\n\n  // 2. Жирный текст: **text** -> <b>text</b>\n  text = text.replace(/\\*\\*(.*?)\\*\\*/g, '<b>$1</b>');\n  text = text.replace(/__(.*?)__/g, '<b>$1</b>');\n\n  // 3. Код: `text` -> <code>text</code>\n  text = text.replace(/`(.*?)`/g, '<code>$1</code>');\n\n  // 4. Блоки кода: ```text``` -> <pre>text</pre>\n  text = text.replace(/```([\\s\\S]*?)```/g, '<pre>$1</pre>');\n\n  // 5. САМОЕ ГЛАВНОЕ: Списки\n  // Заменяем \"* текст\" или \"- текст\" в начале строки на \"• текст\"\n  // Telegram не умеет делать HTML-списки, поэтому делаем их визуально.\n  \n  // Регулярка ищет: (начало строки или перенос)(пробелы)(звездочка или минус)(пробел)\n  text = text.replace(/(^|\\n)\\s*[\\*\\-]\\s+/g, '$1• ');\n\n  // 6. Заголовки Markdown (### Заголовок) -> Жирный текст\n  text = text.replace(/(^|\\n)\\s*#{1,6}\\s+(.*?)(?=\\n|$)/g, '$1<b>$2</b>');\n\n  item.json.response = text;\n  return item;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -64
+      ],
+      "id": "b79135dd-0087-4570-8390-738115ffb194",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Send Searching').item.json.result.chat.id }}",
+        "messageId": "={{ $('Send Searching').item.json.result.message_id }}",
+        "text": "={{ $json.response }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1184,
+        -112
+      ],
+      "id": "02300a75-d9a0-40bd-aa65-456039055093",
+      "name": "Edit a text message",
+      "webhookId": "8c083c17-57d2-4f7e-9052-1683308ee1c8",
+      "credentials": {
+        "telegramApi": {
+          "id": "kYCHD2RTPVr6wdP2",
+          "name": "Vector Librarian Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "🔍 Ищу ответ в базе знаний...",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        272,
+        48
+      ],
+      "id": "b587bc23-081c-4940-a355-4edbd08556bb",
+      "name": "Send Searching",
+      "webhookId": "1393d223-6b5b-48a0-a7fe-bc4b4fc346de",
+      "credentials": {
+        "telegramApi": {
+          "id": "kYCHD2RTPVr6wdP2",
+          "name": "Vector Librarian Bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Retriever": {
+      "ai_retriever": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_retriever",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Retriever",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send Searching",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Question and Answer Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Searching": {
+      "main": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f81bafd7-0085-4f16-9729-578654038e43",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdd2dc7d9e7db65a39b1633b599b733b59fe44ee3381c536e1d281bfd55509b5"
+  },
+  "id": "1nwiRX9julMpEEkt",
+  "tags": []
+}
