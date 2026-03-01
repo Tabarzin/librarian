@@ -1,0 +1,460 @@
+{
+  "name": "SUB - URL/Text Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=https://r.jina.ai/{{ $json.extractedUrl }}\n",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2464,
+        512
+      ],
+      "id": "8ed14a44-8216-4b88-91da-5da94ea6df6c",
+      "name": "Fetch Article Content",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "40ed8c7a-4ef5-4b2f-b084-ae62147aa7f6",
+              "leftValue": "= {{ $json.extractedUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2768,
+        720
+      ],
+      "id": "569d46a5-ea28-4c6a-b64a-644914141f79",
+      "name": "Has URL?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// // Универсальный парсер Jina AI для PubMed, научных статей и обычных веб-страниц\n// // Работает с PDF и веб-контентом\n\n// let content;\n\n// if (typeof $input.item.json === 'string') {\n//   content = $input.item.json;\n// } else if ($input.item.json?.data) {\n//   content = $input.item.json.data;\n// } else if ($input.item.json?.content) {\n//   content = $input.item.json.content;\n// } else if ($input.item.binary) {\n//   content = Buffer.from($input.item.binary.data).toString('utf-8');\n// } else {\n//   const jsonData = $input.item.json;\n//   const firstStringValue = Object.values(jsonData).find(v => typeof v === 'string' && v.length > 100);\n//   content = firstStringValue || JSON.stringify(jsonData);\n// }\n\n// if (typeof content !== 'string') {\n//   content = String(content);\n// }\n\n// if (!content || content.length < 100) {\n//   return {\n//     json: {\n//       title: null,\n//       abstract: null,\n//       publicationDate: null,\n//       pdfUrl: null,\n//       cleanContent: null,\n//       error: 'Content too short or empty'\n//     }\n//   };\n// }\n\n// // ===== ФУНКЦИЯ: Предварительная очистка контента =====\n// function preCleanContent(text) {\n//   return text\n//     .replace(/\\*\\*Title: How does .+ A-Z\\]\\(m\\)/i, '') // navigation UI\n//     .replace(/Display options\\?Format/g, '')\n//     .replace(/Actions\\?Cite\\|Collections\\|Permalink/g, '')\n//     .replace(/Create a new collection\\?Cancel/g, '')\n//     .replace(/Add to an existing collection\\?Cancel/g, '')\n//     .replace(/Full text links\\?Cite/g, '')\n//     .replace(/MeSH terms\\?LinkOut/g, '')\n//     .replace(/Publication types\\?MeSH terms/g, '')\n//     .replace(/Similar articles\\?\\?Cited by\\|References/g, '')\n//     .replace(/References\\?\\?Publication types/g, '')\n//     .replace(/Cited by\\?\\?References\\|Publication types/g, '')\n//     .replace(/Skip to main page content/g, '')\n//     .replace(/The \\.gov means it's official\\?transmitted securely\\./g, '')\n//     .replace(/Logged in as\\?Log out/g, '')\n//     .replace(/NCBI Literature Resources/g, '')\n//     .replace(/National Library of Medicine/g, '')\n//     .replace(/\\n{3,}/g, '\\n\\n')\n//     .trim();\n// }\n\n// content = preCleanContent(content);\n\n// // Убираем служебную информацию Jina API\n// content = content\n//   .split('\\n')\n//   .filter(line => \n//     !line.includes('Usage: 1') && \n//     !line.includes('Usage: 2') && \n//     !line.includes('r.jina.ai/YOUR-URL')\n//   )\n//   .join('\\n')\n//   .trim();\n\n// // ===== ФУНКЦИЯ: Очистка заголовка от мусора =====\n// function sanitizeTitle(title) {\n//   if (!title) return null;\n  \n//   const badPatterns = [\n//     'Usage: 1',\n//     'Usage: 2',\n//     'YOUR-URL',\n//     'Homepage',\n//     'Reader API',\n//     'Convert a URL to LLM-friendly input',\n//     'jina.ai'\n//   ];\n  \n//   const lower = title.toLowerCase();\n//   if (badPatterns.some(p => lower.includes(p.toLowerCase()))) {\n//     return null;\n//   }\n  \n//   return title;\n// }\n\n// // ===== ФУНКЦИЯ: Извлечение заголовка =====\n// function extractTitle(text) {\n//   // PubMed\n//   const pubmedTitle = text.match(/Title: (.+?)(?=\\n)/m);\n//   if (pubmedTitle) {\n//     const candidate = pubmedTitle[1].trim().replace(/ - PubMed$/, '');\n//     const safe = sanitizeTitle(candidate);\n//     if (safe) return safe;\n//   }\n  \n//   // URL Source\n//   const afterUrl = text.match(/URL Source: .+?\\n\\n(.+?)(?=\\n|$)/s);\n//   if (afterUrl) {\n//     let title = afterUrl[1].trim();\n//     title = title.replace(/\\n.+$/, '').replace(/\\|.+$/, '');\n//     if (title.length > 20 && title.length < 300) {\n//       const safe = sanitizeTitle(title);\n//       if (safe) return safe;\n//     }\n//   }\n  \n//   // Первая строка > 30 символов\n//   const lines = text.split('\\n').filter(l => l.trim().length > 20);\n//   for (const line of lines) {\n//     const cleaned = line.trim().replace(/^\\[|\\]$/g, '');\n//     if (\n//       cleaned.length > 30 && \n//       cleaned.length < 300 &&\n//       !cleaned.startsWith('http') &&\n//       !cleaned.match(/\\d{4}/) &&\n//       !cleaned.includes('PMID') &&\n//       !cleaned.includes('doi')\n//     ) {\n//       const safe = sanitizeTitle(cleaned);\n//       if (safe) return safe;\n//     }\n//   }\n  \n//   return null;\n// }\n\n// // ===== ФУНКЦИЯ: Извлечение даты (исправленная) =====\n// function extractDate(text) {\n//   // PubMed формат: \"2024 May;6(2):98014\"\n//   const pubmedDate = text.match(/(\\d{4})\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\b/i);\n//   if (pubmedDate) {\n//     return formatDate(pubmedDate[0], pubmedDate[2], pubmedDate[1]);\n//   }\n  \n//   // Published Time: 2023-01-08T12:08:35+03:00\n//   const publishedTime = text.match(/Published Time:\\s*(\\d{4})-(\\d{2})-(\\d{2})/);\n//   if (publishedTime) {\n//     return formatDate(null, publishedTime[2], publishedTime[1], publishedTime[3]);\n//   }\n  \n//   // Пробуем разные форматы\n//   const patterns = [\n//     /(\\d{4})-(\\d{2})-(\\d{2})/,  // YYYY-MM-DD\n//     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+(\\d{1,2}),?\\s*(\\d{4})/i,  // Month DD, YYYY\n//     /(\\d{1,2})\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+(\\d{4})/i  // DD Month YYYY\n//   ];\n  \n//   for (const pattern of patterns) {\n//     const match = text.match(pattern);\n//     if (match) {\n//       return formatDate(match);\n//     }\n//   }\n  \n//   return null;\n// }\n\n// // ===== ФУНКЦИЯ: Форматирование даты в MM/DD/YYYY =====\n// function formatDate(match, monthArg, yearArg, dayArg) {\n//   const monthMap = {\n//     'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',\n//     'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',\n//     'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12',\n//     '01': '01', '02': '02', '03': '03', '04': '04',\n//     '05': '05', '06': '06', '07': '07', '08': '08',\n//     '09': '09', '10': '10', '11': '11', '12': '12'\n//   };\n  \n//   let day = '01', month, year;\n  \n//   if (monthArg && yearArg) {\n//     // Вызов из pubmedDate или publishedTime\n//     month = monthMap[String(monthArg).toLowerCase().substring(0, 3)] || '01';\n//     year = yearArg;\n//     day = dayArg ? String(dayArg).padStart(2, '0') : '01';\n//   } else if (match[0].match(/\\d{4}-\\d{2}-\\d{2}/)) {\n//     // YYYY-MM-DD\n//     year = match[1];\n//     month = match[2];\n//     day = match[3];\n//   } else if (match[2] && match[2].match(/\\d{4}/)) {\n//     // Month DD, YYYY или YYYY Month\n//     const monthName = match[1].toLowerCase().substring(0, 3);\n//     month = monthMap[monthName] || '01';\n//     year = match[3] || match[2];\n//     day = match[3] ? '01' : match[2].padStart(2, '0');\n//   } else if (match[3]) {\n//     // DD Month YYYY\n//     day = match[1].padStart(2, '0');\n//     const monthName = match[2].toLowerCase().substring(0, 3);\n//     month = monthMap[monthName] || '01';\n//     year = match[3];\n//   }\n  \n//   // ✅ ВОЗВРАЩАЕМ В ФОРМАТЕ MM/DD/YYYY\n//   return `${month}/${day}/${year}`;\n// }\n\n// // ===== ФУНКЦИЯ: Извлечение PDF URL =====\n// function extractPdfUrl(text) {\n//   // Прямая ссылка на PDF\n//   const pdfLink = text.match(/(https?:\\/\\/.+?\\.pdf)/i);\n//   if (pdfLink) return pdfLink[0];\n  \n//   // PMC PDF\n//   const pmcLink = text.match(/https?:\\/\\/www\\.ncbi\\.nlm\\.nih\\.gov\\/pmc\\/articles\\/(PMC\\d+)/);\n//   if (pmcLink) return `https://www.ncbi.nlm.nih.gov/pmc/articles/${pmcLink[1]}/pdf`;\n  \n//   // DOI\n//   const doiLink = text.match(/doi:(10\\.\\d{4,}\\/[^\\s]+)/i);\n//   if (doiLink) return `https://doi.org/${doiLink[1]}`;\n  \n//   return null;\n// }\n\n// // ===== ОСНОВНАЯ ЛОГИКА =====\n// try {\n//   const title = extractTitle(content);\n//   const publicationDate = extractDate(content);\n//   const pdfUrl = extractPdfUrl(content);\n  \n//   // ❌ ABSTRACT ОТКЛЮЧЕН - AI Agent сам сделает summary\n//   const abstract = null;\n  \n//   return {\n//     json: {\n//       title: title,\n//       abstract: abstract,\n//       publicationDate: publicationDate,\n//       pdfUrl: pdfUrl,\n//       cleanContent: content,\n//       extracted: {\n//         hasTitle: !!title,\n//         hasAbstract: false,  // всегда false\n//         hasDate: !!publicationDate,\n//         hasPdf: !!pdfUrl\n//       },\n//       metadata: {\n//         hasTitle: !!title,\n//         hasAbstract: false,\n//         hasDate: !!publicationDate,\n//         hasPdf: !!pdfUrl,\n//         contentLength: content.length\n//       }\n//     }\n//   };\n// } catch (error) {\n//   return {\n//     json: {\n//       title: null,\n//       abstract: null,\n//       publicationDate: null,\n//       pdfUrl: null,\n//       cleanContent: content,\n//       error: error.message,\n//       debug: {\n//         contentPreview: content.substring(0, 500)\n//       }\n//     }\n//   };\n// }\n\n// Универсальный парсер Jina AI для PubMed, научных статей и обычных веб-страниц\n// Работает с PDF и веб-контентом\n\nlet content;\n\nif (typeof $input.item.json === 'string') {\n  content = $input.item.json;\n} else if ($input.item.json?.data) {\n  content = $input.item.json.data;\n} else if ($input.item.json?.content) {\n  content = $input.item.json.content;\n} else if ($input.item.binary) {\n  content = Buffer.from($input.item.binary.data).toString('utf-8');\n} else {\n  const jsonData = $input.item.json;\n  const firstStringValue = Object.values(jsonData).find(\n    v => typeof v === 'string' && v.length > 100\n  );\n  content = firstStringValue || JSON.stringify(jsonData);\n}\n\nif (typeof content !== 'string') {\n  content = String(content);\n}\n\nif (!content || content.length < 100) {\n  return {\n    json: {\n      title: null,\n      abstract: null,\n      publicationDate: null,\n      pdfUrl: null,\n      cleanContent: null,\n      error: 'Content too short or empty',\n    },\n  };\n}\n\n// ===== ФУНКЦИЯ: Предварительная очистка контента (под PubMed и Jina-шум) =====\nfunction preCleanContent(text) {\n  return text\n    .replace(/\\*\\*Title: How does .+ A-Z\\]\\(m\\)/i, '') // navigation UI\n    .replace(/Display options\\?Format/g, '')\n    .replace(/Actions\\?Cite\\|Collections\\|Permalink/g, '')\n    .replace(/Create a new collection\\?Cancel/g, '')\n    .replace(/Add to an existing collection\\?Cancel/g, '')\n    .replace(/Full text links\\?Cite/g, '')\n    .replace(/MeSH terms\\?LinkOut/g, '')\n    .replace(/Publication types\\?MeSH terms/g, '')\n    .replace(/Similar articles\\?\\?Cited by\\|References/g, '')\n    .replace(/References\\?\\?Publication types/g, '')\n    .replace(/Cited by\\?\\?References\\|Publication types/g, '')\n    .replace(/Skip to main page content/g, '')\n    .replace(/The \\.gov means it's official\\?transmitted securely\\./g, '')\n    .replace(/Logged in as\\?Log out/g, '')\n    .replace(/NCBI Literature Resources/g, '')\n    .replace(/National Library of Medicine/g, '')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n}\n\ncontent = preCleanContent(content);\n\n// Убираем служебную информацию Jina API\ncontent = content\n  .split('\\n')\n  .filter(\n    line =>\n      !line.includes('Usage: 1') &&\n      !line.includes('Usage: 2') &&\n      !line.includes('r.jina.ai/YOUR-URL'),\n  )\n  .join('\\n')\n  .trim();\n\n// ===== ФУНКЦИЯ: Очистка заголовка от мусора =====\nfunction sanitizeTitle(title) {\n  if (!title) return null;\n\n  const badPatterns = [\n    'Usage: 1',\n    'Usage: 2',\n    'YOUR-URL',\n    'Homepage',\n    'Reader API',\n    'Convert a URL to LLM-friendly input',\n    'jina.ai',\n  ];\n\n  const lower = title.toLowerCase();\n  if (badPatterns.some(p => lower.includes(p.toLowerCase()))) {\n    return null;\n  }\n\n  return title;\n}\n\n// ===== ФУНКЦИЯ: Извлечение заголовка =====\nfunction extractTitle(text) {\n  // PubMed\n  const pubmedTitle = text.match(/Title: (.+?)(?=\\n)/m);\n  if (pubmedTitle) {\n    const candidate = pubmedTitle[1].trim().replace(/ - PubMed$/, '');\n    const safe = sanitizeTitle(candidate);\n    if (safe) return safe;\n  }\n\n  // URL Source\n  const afterUrl = text.match(/URL Source: .+?\\n\\n(.+?)(?=\\n|$)/s);\n  if (afterUrl) {\n    let title = afterUrl[1].trim();\n    title = title.replace(/\\n.+$/, '').replace(/\\|.+$/, '');\n    if (title.length > 20 && title.length < 300) {\n      const safe = sanitizeTitle(title);\n      if (safe) return safe;\n    }\n  }\n\n  // Первая разумно длинная строка\n  const lines = text.split('\\n').filter(l => l.trim().length > 20);\n  for (const line of lines) {\n    const cleaned = line.trim().replace(/^\\[|\\]$/g, '');\n    if (\n      cleaned.length > 30 &&\n      cleaned.length < 300 &&\n      !cleaned.startsWith('http') &&\n      !cleaned.match(/\\d{4}/) &&\n      !cleaned.includes('PMID') &&\n      !cleaned.includes('doi')\n    ) {\n      const safe = sanitizeTitle(cleaned);\n      if (safe) return safe;\n    }\n  }\n\n  return null;\n}\n\n// ===== ФУНКЦИЯ: Извлечение даты (исправленная) =====\nfunction extractDate(text) {\n  // PubMed формат: \"2024 May;6(2):98014\"\n  const pubmedDate = text.match(\n    /(\\d{4})\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\b/i,\n  );\n  if (pubmedDate) {\n    return formatDate(pubmedDate[0], pubmedDate[2], pubmedDate[1]);\n  }\n\n  // Published Time: 2023-01-08T12:08:35+03:00\n  const publishedTime = text.match(\n    /Published Time:\\s*(\\d{4})-(\\d{2})-(\\d{2})/,\n  );\n  if (publishedTime) {\n    return formatDate(null, publishedTime[2], publishedTime[1], publishedTime[3]);\n  }\n\n  // Пробуем разные форматы\n  const patterns = [\n    /(\\d{4})-(\\d{2})-(\\d{2})/, // YYYY-MM-DD\n    /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+(\\d{1,2}),?\\s*(\\d{4})/i, // Month DD, YYYY\n    /(\\d{1,2})\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+(\\d{4})/i, // DD Month YYYY\n  ];\n\n  for (const pattern of patterns) {\n    const match = text.match(pattern);\n    if (match) {\n      return formatDate(match);\n    }\n  }\n\n  return null;\n}\n\n// ===== ФУНКЦИЯ: Форматирование даты в MM/DD/YYYY =====\nfunction formatDate(match, monthArg, yearArg, dayArg) {\n  const monthMap = {\n    jan: '01',\n    feb: '02',\n    mar: '03',\n    apr: '04',\n    may: '05',\n    jun: '06',\n    jul: '07',\n    aug: '08',\n    sep: '09',\n    oct: '10',\n    nov: '11',\n    dec: '12',\n    '01': '01',\n    '02': '02',\n    '03': '03',\n    '04': '04',\n    '05': '05',\n    '06': '06',\n    '07': '07',\n    '08': '08',\n    '09': '09',\n    '10': '10',\n    '11': '11',\n    '12': '12',\n  };\n\n  let day = '01',\n    month,\n    year;\n\n  if (monthArg && yearArg) {\n    // Вызов из pubmedDate или publishedTime\n    month = monthMap[String(monthArg).toLowerCase().substring(0, 3)] || '01';\n    year = yearArg;\n    day = dayArg ? String(dayArg).padStart(2, '0') : '01';\n  } else if (match[0].match(/\\d{4}-\\d{2}-\\d{2}/)) {\n    // YYYY-MM-DD\n    year = match[1];\n    month = match[2];\n    day = match[3];\n  } else if (match[2] && match[2].match(/\\d{4}/)) {\n    // Month DD, YYYY или YYYY Month\n    const monthName = match[1].toLowerCase().substring(0, 3);\n    month = monthMap[monthName] || '01';\n    year = match[3] || match[2];\n    day = match[3] ? '01' : match[2].padStart(2, '0');\n  } else if (match[3]) {\n    // DD Month YYYY\n    day = match[1].padStart(2, '0');\n    const monthName = match[2].toLowerCase().substring(0, 3);\n    month = monthMap[monthName] || '01';\n    year = match[3];\n  }\n\n  // ✅ ВОЗВРАЩАЕМ В ФОРМАТЕ MM/DD/YYYY\n  return `${month}/${day}/${year}`;\n}\n\n// ===== ФУНКЦИЯ: Извлечение PDF URL =====\nfunction extractPdfUrl(text) {\n  // Прямая ссылка на PDF\n  const pdfLink = text.match(/(https?:\\/\\/.+?\\.pdf)/i);\n  if (pdfLink) return pdfLink[0];\n\n  // PMC PDF\n  const pmcLink = text.match(\n    /https?:\\/\\/www\\.ncbi\\.nlm\\.nih\\.gov\\/pmc\\/articles\\/(PMC\\d+)/,\n  );\n  if (pmcLink)\n    return `https://www.ncbi.nlm.nih.gov/pmc/articles/${pmcLink[1]}/pdf`;\n\n  // DOI\n  const doiLink = text.match(/doi:(10\\.\\d{4,}\\/[^\\s]+)/i);\n  if (doiLink) return `https://doi.org/${doiLink[1]}`;\n\n  return null;\n}\n\n// ===== УНИВЕРСАЛЬНАЯ ДОЧИСТКА ВЕБ-КОНТЕНТА =====\nfunction cleanWebContent(text) {\n  let result = text;\n\n  // 1) Markdown-ссылки [текст](url) -> \"текст\"\n  result = result.replace(/\\[([^\\]]+)]\\((https?:\\/\\/[^\\s)]+)\\)/g, '$1');\n\n  // 2) Голые URL (включая трекинговые)\n  result = result.replace(/https?:\\/\\/\\S+/g, '');\n\n  // 3) Фильтр строк, похожих на навигацию/футер/авторизацию\n  const navFooterPatterns = [\n    'войти',\n    'регистрация',\n    'логин',\n    'sign in',\n    'sign up',\n    'комментарии',\n    'comments',\n    'подписаться',\n    'subscribe',\n    'следующее',\n    'previous',\n    'next article',\n    'related articles',\n    'cookie',\n    'privacy policy',\n    'terms of use',\n    'license',\n    'share on',\n    'поделиться',\n    'facebook',\n    'twitter',\n    'instagram',\n    'linkedin',\n    'all rights reserved',\n  ];\n\n  result = result\n    .split('\\n')\n    .filter(line => {\n      const trimmed = line.trim();\n      if (!trimmed) return true;\n\n      const lower = trimmed.toLowerCase();\n\n      // очень короткие \"мусорные\" строки без букв\n      if (trimmed.length <= 3 && !/[a-zа-я]/i.test(trimmed)) return false;\n\n      // навигация/футер/соцкнопки\n      if (navFooterPatterns.some(p => lower.includes(p))) return false;\n\n      return true;\n    })\n    .join('\\n');\n\n  // 4) Сжимаем пробелы и пустые строки\n  result = result\n    .replace(/[ \\t]+/g, ' ')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n\n  return result;\n}\n\n// ===== ОСНОВНАЯ ЛОГИКА =====\ntry {\n  const title = extractTitle(content);\n  const publicationDate = extractDate(content);\n  const pdfUrl = extractPdfUrl(content);\n\n  // ❌ ABSTRACT ОТКЛЮЧЕН - AI Agent сам сделает summary\n  const abstract = null;\n\n  const cleaned = cleanWebContent(content);\n\n  return {\n    json: {\n      title,\n      abstract,\n      publicationDate,\n      pdfUrl,\n      cleanContent: cleaned,\n      extracted: {\n        hasTitle: !!title,\n        hasAbstract: false,\n        hasDate: !!publicationDate,\n        hasPdf: !!pdfUrl,\n      },\n      metadata: {\n        hasTitle: !!title,\n        hasAbstract: false,\n        hasDate: !!publicationDate,\n        hasPdf: !!pdfUrl,\n        contentLength: cleaned.length,\n      },\n    },\n  };\n} catch (error) {\n  return {\n    json: {\n      title: null,\n      abstract: null,\n      publicationDate: null,\n      pdfUrl: null,\n      cleanContent: content,\n      error: error.message,\n      debug: {\n        contentPreview: content.substring(0, 500),\n      },\n    },\n  };\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        496
+      ],
+      "id": "324613ee-bfaa-4106-9fc1-531225f91a44",
+      "name": "Parse Jina Response",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\n\n// n8n возвращает ошибки в двух форматах:\n// 1. item.error (старый формат)\n// 2. item.errorMessage (новый формат от HTTP Request)\n\nconst hasError = item.error || item.errorMessage;\n\nif (hasError) {\n  // Извлекаем данные ошибки из разных форматов\n  const errorMessage = item.errorMessage || item.error?.message || '';\n  const errorDescription = item.errorDescription || '';\n  const httpCode = item.errorDetails?.httpCode || item.error?.code || '';\n  \n  // Пытаемся распарсить rawErrorMessage для получения деталей\n  let detailedMessage = errorDescription;\n  if (item.errorDetails?.rawErrorMessage) {\n    try {\n      const raw = item.errorDetails.rawErrorMessage[0];\n      const parsed = JSON.parse(raw.split(' - ')[1]);\n      detailedMessage = parsed.message || parsed.readableMessage || errorDescription;\n    } catch (e) {\n      // Если не получилось распарсить - используем errorDescription\n    }\n  }\n  \n  let errorType = 'Ошибка получения контента';\n  let errorDetails = '';\n  let userMessage = '';\n  \n  // Классифицируем ошибки Jina\n  if (detailedMessage.includes('could not be resolved')) {\n    errorType = 'Неверная ссылка';\n    errorDetails = 'Домен не существует или введена неправильная ссылка';\n    userMessage = 'Проверьте правильность URL (возможно опечатка в адресе)';\n    \n  } else if (httpCode === '404' || detailedMessage.includes('not found')) {\n    errorType = 'Страница не найдена';\n    errorDetails = 'Страница удалена или URL неверный';\n    userMessage = 'Проверьте ссылку или отправьте другую';\n    \n  } else if (httpCode === '403' || detailedMessage.includes('forbidden')) {\n    errorType = 'Доступ запрещен';\n    errorDetails = 'Требуется авторизация или контент защищен';\n    userMessage = 'Попробуйте отправить PDF вместо ссылки';\n    \n  } else if (httpCode === '429' || detailedMessage.includes('rate limit')) {\n    errorType = 'Превышен лимит запросов';\n    errorDetails = 'Jina API временно ограничил доступ';\n    userMessage = 'Попробуйте через минуту';\n    \n  } else if (detailedMessage.includes('timeout')) {\n    errorType = 'Превышено время ожидания';\n    errorDetails = 'Сайт слишком долго отвечает';\n    userMessage = 'Попробуйте другую ссылку';\n    \n  } else {\n    errorType = 'Не удалось обработать ссылку';\n    errorDetails = detailedMessage || errorMessage;\n    userMessage = 'Попробуйте отправить PDF или другую ссылку';\n  }\n  \n   return {\n    json: {\n      ...item,\n      hasError: true,\n      errorType,\n      errorDetails,\n      userMessage,\n      originalUrl: item.extractedUrl\n    }\n  };\n\n}\n\n// Если ошибки нет - возвращаем как есть\nreturn {\n  json: {\n    ...item,\n    hasError: false\n  }\n};\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2224,
+        496
+      ],
+      "id": "c47822f6-ea84-4547-95c2-748f1affa2bb",
+      "name": "Check Jina Result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b4a6e855-8923-4c5c-a7f5-0d87e43645c3",
+              "leftValue": "={{ $json.hasError }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2016,
+        496
+      ],
+      "id": "95fbf3d0-dc18-4d18-94bd-f44e6667277c",
+      "name": "Jina Success?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=⚠️ Не удалось обработать ссылку\n\n🔗 URL: {{ $json.originalUrl }}\n\n❌ Проблема: {{ $json.errorType }} \n\nℹ️ {{ $json.errorDetails }}  \n\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1808,
+        672
+      ],
+      "id": "e696e267-d44c-4f37-8570-6a06bdbef2e4",
+      "name": "Notify Link Error",
+      "webhookId": "a3425d81-1460-4132-8520-5d6f8e294d2a",
+      "credentials": {
+        "telegramApi": {
+          "id": "OUxYQm02IJNTzVCg",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -3520,
+        832
+      ],
+      "id": "07e66207-f66b-48e0-91ae-025d7b919d5c",
+      "name": "When Executed by Another Workflow1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1440,
+        816
+      ],
+      "id": "bc70ae8a-31f3-4ae0-afdd-edb4c42adcd5",
+      "name": "Merge URL + Jina"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "91ee3dcb-a2c4-4778-b124-480ce7459061",
+              "name": "isPDF",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "2fbdbc1d-4704-4133-a0f4-3dd1adbae0ba",
+              "name": "rawText",
+              "value": "={{ $json.cleanContent || $json.rawText || $json.originalPostText || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "3d43cde3-424c-4aa1-9152-37edc4d6f17b",
+              "name": "articleTitle",
+              "value": "={{ $json.articleTitle || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "7ca65684-bd20-4bd5-b3b1-9dea7688499b",
+              "name": "originalTitle",
+              "value": "={{ $json.title || $json.articleTitle || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "1408abd8-f078-402a-8080-c02fd243c8c8",
+              "name": "sourceUrl",
+              "value": "={{ $json.sourceUrl || $json.extractedUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a34be1e8-3391-4e21-9b36-2e126ce96540",
+              "name": "extractedUrl",
+              "value": "={{ $json.extractedUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "c25a1954-89cd-46f4-89d4-727b41c496dc",
+              "name": "publicationDate",
+              "value": "={{ $json.publicationDate || null }}",
+              "type": "string"
+            },
+            {
+              "id": "626c0395-58a8-427d-91fb-e5bab84591ed",
+              "name": "webViewLink",
+              "value": "={{ '' }} ",
+              "type": "string"
+            },
+            {
+              "id": "59dd4670-60d9-4996-adfd-3641c578f662",
+              "name": "=fileName",
+              "value": "={{ '' }}",
+              "type": "string"
+            },
+            {
+              "id": "fd2a22ae-05d6-438b-9c21-80df87797131",
+              "name": "contentType",
+              "value": "={{ $json.contentType || 'Пост/ссылка' }}",
+              "type": "string"
+            },
+            {
+              "id": "9c2fa9f3-6f04-46a1-a4bd-a4f05d8e45cf",
+              "name": "groupId",
+              "value": "={{ $json.groupId || null }}",
+              "type": "string"
+            },
+            {
+              "id": "ad28b131-a28d-46dd-9b01-12533436a14e",
+              "name": "timestamp",
+              "value": "={{ $json.timestamp || null }}",
+              "type": "string"
+            },
+            {
+              "id": "a84d5326-830b-4e32-a37b-4f984248336b",
+              "name": "sender",
+              "value": "={{ $json.sender || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "f8c181a9-e6a4-4611-b184-ffe21eac04a6",
+              "name": "postAuthor",
+              "value": "={{ $json.postAuthor || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "58bbb5c0-1c47-4722-b77d-ee7a065eb4bd",
+              "name": "senderComment",
+              "value": "={{ $json.senderComment || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "46113968-96cb-4084-adb1-34c96faedb06",
+              "name": "originalPostText",
+              "value": "={{ $json.originalPostText || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "c7a20639-df5a-49d1-95bd-4c7669e15a02",
+              "name": "additionalUrls",
+              "value": "={{ $json.additionalUrls }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1184,
+        816
+      ],
+      "id": "79e70a39-2edf-4966-89f4-75ac83b34aae",
+      "name": "Normalize URL Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nreturn {\n  json: {\n    ...item,\n    \n    // Основные поля\n    isPDF: false,\n    rawText: item.rawText || item.originalPostText || item.message?.text || '',\n    //fullText: item.rawText || item.originalPostText || item.message?.text || '',\n    originalPostText: item.originalPostText || item.message?.text || '',\n    \n    // Заголовки\n    articleTitle: item.articleTitle || '',\n    originalTitle: item.articleTitle || '',\n    \n    // Источники\n    sourceUrl: item.sourceUrl || 'Пост Telegram',\n    extractedUrl: '',\n    \n    // Даты и файлы\n    publicationDate: '',\n    webViewLink: '',\n    fileName: '',\n    \n    // Тип контента\n    contentType: item.contentType || 'Пост Telegram',\n    \n    // Метаданные\n    groupId: item.groupId || '',\n    timestamp: item.timestamp || '',\n    sender: item.sender || '',\n    postAuthor: item.postAuthor || '',\n    senderComment: item.senderComment || '',\n    originalPostText: item.originalPostText || ''\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1232,
+        1008
+      ],
+      "id": "878f3915-b82f-4db3-8336-dfe6a79351ad",
+      "name": "Process Text Only"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -816,
+        816
+      ],
+      "id": "e7d5e54e-2017-4a39-9724-064390724881",
+      "name": "Merge All Paths"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fetch Article Content": {
+      "main": [
+        [
+          {
+            "node": "Check Jina Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has URL?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Jina Response": {
+      "main": [
+        [
+          {
+            "node": "Merge URL + Jina",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Jina Result": {
+      "main": [
+        [
+          {
+            "node": "Jina Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jina Success?": {
+      "main": [
+        [
+          {
+            "node": "Parse Jina Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Link Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow1": {
+      "main": [
+        [
+          {
+            "node": "Has URL?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge URL + Jina",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge URL + Jina": {
+      "main": [
+        [
+          {
+            "node": "Normalize URL Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize URL Output": {
+      "main": [
+        [
+          {
+            "node": "Merge All Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Text Only": {
+      "main": [
+        [
+          {
+            "node": "Merge All Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "db657825-b898-4983-a8d9-ae7a3027765b",
+  "meta": {
+    "instanceId": "fdd2dc7d9e7db65a39b1633b599b733b59fe44ee3381c536e1d281bfd55509b5"
+  },
+  "id": "9jo3KpCGSOA0ub0P",
+  "tags": []
+}

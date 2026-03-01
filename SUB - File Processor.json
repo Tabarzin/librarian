@@ -1,0 +1,513 @@
+{
+  "name": "SUB - File Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.file_name.toLowerCase().endsWith('.pdf') }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "18b066b8-8765-41f0-bbc6-169287c1da0b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6f54a974-2bac-44b6-8b79-e9db49407d71",
+                    "leftValue": "={{ $json.file_name.toLowerCase().endsWith('.doc') || $json.file_name.toLowerCase().endsWith('.docx') }}",
+                    "rightValue": "=binary-doc",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DOCX"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        320,
+        -528
+      ],
+      "id": "2fbd145f-d1c5-46ea-a5a6-df4f14448c03",
+      "name": "Route by File Type"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "source_type"
+            },
+            {
+              "name": "file_id"
+            },
+            {
+              "name": "file_name"
+            },
+            {
+              "name": "rawText"
+            },
+            {
+              "name": "sender"
+            },
+            {
+              "name": "postAuthor"
+            },
+            {
+              "name": "senderComment"
+            },
+            {
+              "name": "originalPostText"
+            },
+            {
+              "name": "sourceUrl"
+            },
+            {
+              "name": "groupId"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -304,
+        -496
+      ],
+      "id": "6c4aa3a6-4b9d-4b3d-b383-0a8fefe32503",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.file_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        576,
+        -784
+      ],
+      "id": "13bdb47d-6949-4d68-b3e1-9b7af11d65ec",
+      "name": "Download File"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        816,
+        -688
+      ],
+      "id": "8ea891d4-9f47-46d4-b0b9-4ea821540848",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1QoTAJPeyK1Zv-5nAbfrqCHMrXOUl85sG",
+          "mode": "list",
+          "cachedResultName": "Психология ИИ (n8n)",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1QoTAJPeyK1Zv-5nAbfrqCHMrXOUl85sG"
+        },
+        "options": {
+          "simplifyOutput": false
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1056,
+        -864
+      ],
+      "id": "25ec7334-2ce6-4fba-82fb-982333e0b815",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GMreirJpMG7aflZV",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        -640
+      ],
+      "id": "5d1c74bd-cd8e-4879-858d-cefda6194318",
+      "name": "Extract from File1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.file_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        736,
+        -432
+      ],
+      "id": "801e1992-63c9-487e-8b03-237ba7c98a23",
+      "name": "Download DOCX File"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1QoTAJPeyK1Zv-5nAbfrqCHMrXOUl85sG",
+          "mode": "list",
+          "cachedResultName": "Психология ИИ (n8n)",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1QoTAJPeyK1Zv-5nAbfrqCHMrXOUl85sG"
+        },
+        "options": {
+          "simplifyOutput": false
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1104,
+        -400
+      ],
+      "id": "e80681f9-694f-4d8d-a572-a980fee1b7c8",
+      "name": "Upload DOCX to Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GMreirJpMG7aflZV",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot8225942440:AAHEwjbwJStLQhMi2_THkkuktfe-npBKQCo/getFile?file_id={{ $json.file_id }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -80,
+        -496
+      ],
+      "id": "c4e048dd-3bf5-4a9f-b1f7-720047e8c063",
+      "name": "Get Telegram File Info"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileInfo = $input.first().json;\n\n// file_path из ответа getFile\nconst filePath = fileInfo.result.file_path;\n\n// Строим URL\nconst fileUrl = `https://api.telegram.org/file/bot8225942440:AAHEwjbwJStLQhMi2_THkkuktfe-npBKQCo/${filePath}`;\n\n// Исходные данные, пришедшие в саб с When Executed by Another Workflow\nconst base = $('When Executed by Another Workflow').first().json;\n\nreturn {\n  json: {\n    ...base,      // source_type, file_id, file_name, метаданные\n    file_url: fileUrl\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        -496
+      ],
+      "id": "5b7dcc07-a233-4c04-b3d9-dfa50600fa99",
+      "name": "Build File URL"
+    },
+    {
+      "parameters": {
+        "jsCode": "const driveFile = $input.first().json;\n\nlet pdfData = null;\ntry {\n  pdfData = $('Extract from File1').first().json;\n} catch (e) {\n  pdfData = null;\n}\n\nconst base = $('When Executed by Another Workflow').first().json;\n\nconst fullText = pdfData?.text || '';\nconst articleTitle =\n  pdfData?.metadata?.['dc:title'] ||\n  pdfData?.info?.Title ||\n  base.file_name ||\n  '';\n\nreturn [{\n  json: {\n    // Google Drive\n    webViewLink: driveFile.webViewLink,\n    fileName: driveFile.name || driveFile.originalFilename || base.file_name,\n    fileId: driveFile.id,\n\n    // Телеграм‑метаданные\n    sender: base.sender || '',\n    postAuthor: base.postAuthor || '',\n    senderComment: base.senderComment || '',\n    originalPostText: base.originalPostText || '',\n    sourceUrl: base.sourceUrl || '',\n    groupId: base.groupId || '',\n    rawText: base.rawText || base.senderComment || '',\n\n    // Флаги\n    isPDF: true,\n    isDOCX: false,\n    contentType: 'PDF',\n\n    // Контент\n    fullText,\n    articleTitle,\n    extractedUrl: '',\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        -832
+      ],
+      "id": "dfc1984d-6006-4758-bc49-4b5b2684b2f6",
+      "name": "Code PDF"
+    },
+    {
+      "parameters": {
+        "jsCode": "const driveFile = $input.first().json;\nconst base = $('When Executed by Another Workflow').first().json;\n\nreturn [{\n  json: {\n    webViewLink: driveFile.webViewLink,\n    fileName: driveFile.name || driveFile.originalFilename || base.file_name,\n    fileId: driveFile.id,\n\n    sender: base.sender || '',\n    postAuthor: base.postAuthor || '',\n    senderComment: base.senderComment || '',\n    originalPostText: base.originalPostText || '',\n    sourceUrl: base.sourceUrl || '',\n    groupId: base.groupId || '',\n    rawText: base.rawText || base.senderComment || '',\n\n    isPDF: false,\n    isDOCX: true,\n    contentType: 'DOCX',\n\n    fullText: '',        // позже можно добавить парсинг\n    articleTitle: '',\n    extractedUrl: '',\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -384
+      ],
+      "id": "fb55adb1-cdbc-4397-8f88-da055894d7f5",
+      "name": "Code DOCX"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2032,
+        -624
+      ],
+      "id": "32ec4e3e-f623-44f1-bc3d-6102cb9edfd6",
+      "name": "Merge File Outputs"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1264,
+        -864
+      ],
+      "id": "00207468-da76-4443-8db3-327ce74cd556",
+      "name": "Merge1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Telegram File Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by File Type": {
+      "main": [
+        [
+          {
+            "node": "Download File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download DOCX File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract from File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Download DOCX File": {
+      "main": [
+        [
+          {
+            "node": "Upload DOCX to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload DOCX to Drive": {
+      "main": [
+        [
+          {
+            "node": "Code DOCX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Telegram File Info": {
+      "main": [
+        [
+          {
+            "node": "Build File URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build File URL": {
+      "main": [
+        [
+          {
+            "node": "Route by File Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge File Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code DOCX": {
+      "main": [
+        [
+          {
+            "node": "Merge File Outputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Code PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ceb5ce94-ffad-4386-b77d-d77907bc49cb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdd2dc7d9e7db65a39b1633b599b733b59fe44ee3381c536e1d281bfd55509b5"
+  },
+  "id": "KpYuUaWjAD59HAom",
+  "tags": []
+}

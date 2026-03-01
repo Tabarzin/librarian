@@ -1,0 +1,3615 @@
+{
+  "name": "ADD Psychology of AI",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const aiOutput = $input.first().json;\nconst baseData = $('Prepare for AI').first().json;\n\ntry {\n  const cleanedText = aiOutput.output\n    .replace(/```json\\n?/g, '')\n    .replace(/```\\n?/g, '')\n    .trim();\n\n  const parsedJson = JSON.parse(cleanedText);\n\n  return [{\n    json: {\n      // От AI\n      ...parsedJson,\n\n      // Метаданные из Prepare for AI\n      fullText: baseData._originalFullText || '',\n      webViewLink: baseData.webViewLink || '',\n      fileName: baseData.fileName || '',\n      contentType: baseData.contentType || '',\n      postAuthor: baseData.postAuthor || '',\n      senderComment: baseData.senderComment || '',\n      originalPostText: baseData.originalPostText || '',\n      groupId: baseData.groupId || '',\n      sender: baseData.sender || '',\n      extractedUrl: baseData.extractedUrl || null,\n      sourceUrl: baseData.sourceUrl || '',\n\n     additionalUrls: baseData.additionalUrls || '',\n\n      // Fallback\n      articleTitle: parsedJson.originalTitle || baseData.articleTitle || 'Без названия',\n\n      output: undefined\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      parseError: `Ошибка: ${error.message}`,\n      rawOutput: aiOutput.output,\n      ...baseData   // тут уже будет linkContent\n    }\n  }];\n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        976
+      ],
+      "id": "570ba303-f974-4d45-a4b7-1fc331cddc0c",
+      "name": "ParseAIOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Твоя задача — проанализировать контент и вернуть структурированные данные в формате JSON.\n\n{{ $json.isPDF ? \n   '📄 ОБРАБОТКА PDF ДОКУМЕНТА' + \n   ($json.hasAbstract ? ' (найдена аннотация)' : ' (аннотация не найдена)') +\n   ($json.truncated ? ' ⚠️ Текст обрезан до ' + $json.rawText.length + ' символов из ' + $json.textLength : '') :\n   '🌐 ОБРАБОТКА ВЕБ-СТАТЬИ'\n}}\n\nСтруктура JSON:\n{\n  \"originalTitle\": \"{{ \n    $json.isPDF ? \n      'Извлеки полное название статьи/исследования из текста' :\n      ($json.articleTitle \n        ? $json.articleTitle + ' - ИСПОЛЬЗУЙ ЭТО НАЗВАНИЕ ИЗ TELEGRAM'\n        : ($json.originalTitle || 'Извлеки реальное название из текста ниже'))\n  }}\"\n  \n  \"title\": \"Перевод на русский\",\n  \"summary\": \"Краткое резюме на русском (2-4 предложения)\",\n  \"tags\": [\"массив\", \"из\", \"5-8\", \"тегов\"],\n  \"publicationDate\": \"{{ \n    $json.isPDF ? \n      ($json.pdfDate ? $json.pdfDate + ' - используй эту дату из метаданных PDF' : 'null - ищи в тексте формат MM/DD/YYYY') :\n      ($json.publicationDate \n        ? $json.publicationDate\n        : 'null - ищи в тексте')\n  }}\",\n  \n \"source\": \"{{ \n    $json.isPDF ? \n      'Извлеки название журнала, сборника, конференции или книги из текста' :\n      ($json.sourceUrl || 'URL не найден')\n  }}\"\n\n}\n\n---\n\nКРИТИЧЕСКИ ВАЖНО:\n\n{{ $json.isPDF ? \n   '📄 ДЛЯ PDF:\\n' +\n   '1. **originalTitle**: Извлеки реальное название исследования/статьи из текста\\n' +\n   '2. **publicationDate**: ' + \n   ($json.pdfDate \n     ? 'УЖЕ ИЗВЛЕЧЕНА ИЗ МЕТАДАННЫХ PDF: ' + $json.pdfDate + ' - ОБЯЗАТЕЛЬНО используй её!' \n     : 'Ищи дату публикации в начале документа (формат MM/DD/YYYY - месяц/день/год)') + '\\n' +\n   '3. **summary**: ' + ($json.hasAbstract ? 'Аннотация найдена - переведи её на русский' : 'Составь резюме из введения/начала текста') + '\\n' +\n   '4. **tags**: Извлеки ключевые слова или составь теги на основе содержания\\n' +\n   '5. **source**: ВАЖНО! Извлеки из текста:\\n' +\n   '   - Название журнала\\n' +\n   '   - ИЛИ название сборника/конференции\\n' +\n   '   - ИЛИ название книги\\n' +\n   '   - Если есть - добавь год и номер выпуска\\n' +\n   '   - Если НЕ НАЙДЕНО - верни \"PDF Document\"\\n' +\n   '   Формат: \"Название источника, год/выпуск\" или просто \"Название источника\"' :\n   \n   '🌐 ДЛЯ ВЕБ-СТАТЬИ:\\n' +\n   '1. **originalTitle**: ' + \n   ($json.articleTitle ?\n      'УЖЕ ИЗВЛЕЧЁН ИЗ TELEGRAM: \"' + $json.articleTitle + '\" - ОБЯЗАТЕЛЬНО используй его!' :\n      ($json.originalTitle ? \n         'Извлечён из статьи: \"' + $json.originalTitle + '\" - используй его!' : \n         'Извлеки реальное название из текста статьи')) + '\\n' +\n\n   '2. **publicationDate**: ' +\n   ($json.publicationDate ? \n      'УЖЕ НАЙДЕНА: ' + $json.publicationDate + ' - используй её!' : \n      'Ищи дату в тексте в формате MM/DD/YYYY') + '\\n' +\n   '3. **summary**: Сделай краткое резюме из доступного текста\\n' +\n   '4. **source**: УЖЕ ОПРЕДЕЛЁН: \"' + $json.sourceUrl + '\" - используй ТОЧНО ЭТО значение!'\n\n}}\n\n---\n\nИСХОДНЫЕ ДАННЫЕ:\n\n{{ $json.isPDF ? \n   '📄 Имя файла (справочно): ' + $json.fileName + '\\n' +\n   ($json.pdfDate ? '📅 Дата из метаданных PDF: ' + $json.pdfDate + '\\n' : '') +\n   ($json.hasAbstract ? '✅ Найденная аннотация:\\n' + $json.abstract + '\\n\\n' : '') +\n   '--- ТЕКСТ ДОКУМЕНТА ---\\n' + $json.rawText :\n   \n   ($json.rawText ? 'Текст из Telegram:\\n' + $json.rawText + '\\n\\n' : '') +\n   ($json.extractedUrl ? 'URL: ' + $json.extractedUrl + '\\n' : '') +\n   ($json.fullText ? '--- ОБРАБОТАННЫЙ КОНТЕНТ СТАТЬИ ---\\n' + $json.fullText : '')\n}}\n\n---\n\nВЕРНИ ТОЛЬКО валидный JSON без markdown обёрток.\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -560,
+        1072
+      ],
+      "id": "bfb4f662-a958-4562-ba07-cb1e3912a71d",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "mode": "list",
+          "value": "apphMC5S7HSm7UE8m"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbloVFbVCQ5rxt5K8",
+          "mode": "list",
+          "cachedResultName": "Психология ИИ",
+          "cachedResultUrl": "https://airtable.com/apphMC5S7HSm7UE8m/tbloVFbVCQ5rxt5K8"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Summary": "={{ $json.summary }}",
+            "Название": "={{ $json.originalTitle || $json.articleTitle || 'Без названия' }}",
+            " Дата добавления": "={{ $now.toISO() }}",
+            "Дата исследования": "={{ \n  $json.publicationDate && $json.publicationDate !== 'null' && $json.publicationDate !== null\n    ? (\n        DateTime.fromFormat($json.publicationDate, 'd/M/yyyy').isValid\n          ? DateTime.fromFormat($json.publicationDate, 'd/M/yyyy').toFormat('MM/dd/yyyy')\n          : (\n              // Fallback на случай другого формата\n              $('Telegram Trigger').item.json.message.date\n                ? new Date($('Telegram Trigger').item.json.message.date * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' })\n                : ''\n            )\n      )\n    : (\n        // Если даты нет\n        $('Telegram Trigger').item.json.message.date\n          ? new Date($('Telegram Trigger').item.json.message.date * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' })\n          : ''\n      )\n}}",
+            "Теги": "={{ $json.tags }}",
+            "Источник": "={{ $json.source || $json.sourceUrl || $json.extractedUrl || 'Не указан' }}",
+            "Group ID": "={{ $json.groupId || '' }}",
+            "Автор поста": "={{ $json.postAuthor || '' }}",
+            "Коммментарий отправителя": "={{ $json.senderComment || '' }}",
+            "Текст исходного поста": "={{ $json.originalPostText || $json.rawText || '' }}",
+            "Тип материала": "={{ $json.contentType || '' }}\n",
+            "Ссылки из поста": "={{\n  $json.extractedUrl\n    ? ($json.additionalUrls\n        ? $json.extractedUrl + '\\n' + $json.additionalUrls\n        : $json.extractedUrl)\n    : ($json.additionalUrls || '')\n}}",
+            "Текст из файла": "={{ $json.fullText || '' }}",
+            "Ссылка на диск": "={{ $json.webViewLink }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Название",
+              "displayName": "Название",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Источник",
+              "displayName": "Источник",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Текст из файла",
+              "displayName": "Текст из файла",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Автор поста",
+              "displayName": "Автор поста",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": " Дата добавления",
+              "displayName": " Дата добавления",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Дата исследования",
+              "displayName": "Дата исследования",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Теги",
+              "displayName": "Теги",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "options": [
+                {
+                  "name": "искусственный интеллект",
+                  "value": "искусственный интеллект"
+                },
+                {
+                  "name": "психология",
+                  "value": "психология"
+                },
+                {
+                  "name": "междисциплинарные исследования",
+                  "value": "междисциплинарные исследования"
+                },
+                {
+                  "name": "когнитивная наука",
+                  "value": "когнитивная наука"
+                },
+                {
+                  "name": "машинное обучение",
+                  "value": "машинное обучение"
+                },
+                {
+                  "name": "взаимодействие ИИ и психологии",
+                  "value": "взаимодействие ИИ и психологии"
+                },
+                {
+                  "name": "методология исследований",
+                  "value": "методология исследований"
+                },
+                {
+                  "name": "ChatGPT",
+                  "value": "ChatGPT"
+                },
+                {
+                  "name": "большие языковые модели",
+                  "value": "большие языковые модели"
+                },
+                {
+                  "name": "ИИ",
+                  "value": "ИИ"
+                },
+                {
+                  "name": "нейронаука",
+                  "value": "нейронаука"
+                },
+                {
+                  "name": "обработка информации",
+                  "value": "обработка информации"
+                },
+                {
+                  "name": "AI Dating",
+                  "value": "AI Dating"
+                },
+                {
+                  "name": "Искусственный интеллект",
+                  "value": "Искусственный интеллект"
+                },
+                {
+                  "name": "Япония",
+                  "value": "Япония"
+                },
+                {
+                  "name": "Будущее отношений",
+                  "value": "Будущее отношений"
+                },
+                {
+                  "name": "Технологии",
+                  "value": "Технологии"
+                },
+                {
+                  "name": "Романтика",
+                  "value": "Романтика"
+                },
+                {
+                  "name": "Инфорги",
+                  "value": "Инфорги"
+                },
+                {
+                  "name": "знакомства",
+                  "value": "знакомства"
+                },
+                {
+                  "name": "романтика",
+                  "value": "романтика"
+                },
+                {
+                  "name": "будущее",
+                  "value": "будущее"
+                },
+                {
+                  "name": "технологии",
+                  "value": "технологии"
+                },
+                {
+                  "name": "алгоритмы",
+                  "value": "алгоритмы"
+                },
+                {
+                  "name": "психология ИИ",
+                  "value": "психология ИИ"
+                },
+                {
+                  "name": "сознание",
+                  "value": "сознание"
+                },
+                {
+                  "name": "взаимодействие человек-компьютер",
+                  "value": "взаимодействие человек-компьютер"
+                },
+                {
+                  "name": "разработка ИИ",
+                  "value": "разработка ИИ"
+                },
+                {
+                  "name": "теория сознания",
+                  "value": "теория сознания"
+                },
+                {
+                  "name": "проектирование ИИ",
+                  "value": "проектирование ИИ"
+                },
+                {
+                  "name": "взаимодействие человек-ИИ",
+                  "value": "взаимодействие человек-ИИ"
+                },
+                {
+                  "name": "этика ИИ",
+                  "value": "этика ИИ"
+                },
+                {
+                  "name": "капитализм слежки",
+                  "value": "капитализм слежки"
+                },
+                {
+                  "name": "геополитика",
+                  "value": "геополитика"
+                },
+                {
+                  "name": "данные",
+                  "value": "данные"
+                },
+                {
+                  "name": "суверенитет данных",
+                  "value": "суверенитет данных"
+                },
+                {
+                  "name": "международные отношения",
+                  "value": "международные отношения"
+                },
+                {
+                  "name": "конфиденциальность",
+                  "value": "конфиденциальность"
+                },
+                {
+                  "name": "NotebookLM",
+                  "value": "NotebookLM"
+                },
+                {
+                  "name": "Deep Research",
+                  "value": "Deep Research"
+                },
+                {
+                  "name": "Google",
+                  "value": "Google"
+                },
+                {
+                  "name": "обновления",
+                  "value": "обновления"
+                },
+                {
+                  "name": "анализ данных",
+                  "value": "анализ данных"
+                },
+                {
+                  "name": "автоматизация",
+                  "value": "автоматизация"
+                },
+                {
+                  "name": "продуктивность",
+                  "value": "продуктивность"
+                },
+                {
+                  "name": "видеопересказы",
+                  "value": "видеопересказы"
+                },
+                {
+                  "name": "Nano Banana",
+                  "value": "Nano Banana"
+                },
+                {
+                  "name": "видеопересказ",
+                  "value": "видеопересказ"
+                },
+                {
+                  "name": "контекстное окно",
+                  "value": "контекстное окно"
+                },
+                {
+                  "name": "робототехника",
+                  "value": "робототехника"
+                },
+                {
+                  "name": "UBTECH Robotics",
+                  "value": "UBTECH Robotics"
+                },
+                {
+                  "name": "Figure",
+                  "value": "Figure"
+                },
+                {
+                  "name": "спор",
+                  "value": "спор"
+                },
+                {
+                  "name": "видео",
+                  "value": "видео"
+                },
+                {
+                  "name": "спецэффекты",
+                  "value": "спецэффекты"
+                },
+                {
+                  "name": "Бретт Адкок",
+                  "value": "Бретт Адкок"
+                },
+                {
+                  "name": "AI",
+                  "value": "AI"
+                },
+                {
+                  "name": "удаленная работа",
+                  "value": "удаленная работа"
+                },
+                {
+                  "name": "бенчмарк",
+                  "value": "бенчмарк"
+                },
+                {
+                  "name": "RLI",
+                  "value": "RLI"
+                },
+                {
+                  "name": "UpWork",
+                  "value": "UpWork"
+                },
+                {
+                  "name": "экономика",
+                  "value": "экономика"
+                },
+                {
+                  "name": "мультимодальные модели",
+                  "value": "мультимодальные модели"
+                },
+                {
+                  "name": "UI grounding",
+                  "value": "UI grounding"
+                },
+                {
+                  "name": "Qwen3-VL",
+                  "value": "Qwen3-VL"
+                },
+                {
+                  "name": "навигация",
+                  "value": "навигация"
+                },
+                {
+                  "name": "рассуждение",
+                  "value": "рассуждение"
+                },
+                {
+                  "name": "UI агенты",
+                  "value": "UI агенты"
+                },
+                {
+                  "name": "клиническая психология",
+                  "value": "клиническая психология"
+                },
+                {
+                  "name": "психотерапия",
+                  "value": "психотерапия"
+                },
+                {
+                  "name": "образование",
+                  "value": "образование"
+                },
+                {
+                  "name": "аспиранты",
+                  "value": "аспиранты"
+                },
+                {
+                  "name": "смешанные методы",
+                  "value": "смешанные методы"
+                },
+                {
+                  "name": "исследование",
+                  "value": "исследование"
+                },
+                {
+                  "name": "чат-бот",
+                  "value": "чат-бот"
+                },
+                {
+                  "name": "общение",
+                  "value": "общение"
+                },
+                {
+                  "name": "The Washington Post",
+                  "value": "The Washington Post"
+                },
+                {
+                  "name": "психическое здоровье",
+                  "value": "психическое здоровье"
+                },
+                {
+                  "name": "депрессия",
+                  "value": "депрессия"
+                },
+                {
+                  "name": "тревожность",
+                  "value": "тревожность"
+                },
+                {
+                  "name": "сотрудники",
+                  "value": "сотрудники"
+                },
+                {
+                  "name": "работа",
+                  "value": "работа"
+                },
+                {
+                  "name": "Анализ данных",
+                  "value": "Анализ данных"
+                },
+                {
+                  "name": "Пользовательские сценарии",
+                  "value": "Пользовательские сценарии"
+                },
+                {
+                  "name": "Языковые модели",
+                  "value": "Языковые модели"
+                },
+                {
+                  "name": "Разговорный ИИ",
+                  "value": "Разговорный ИИ"
+                },
+                {
+                  "name": "исследования",
+                  "value": "исследования"
+                },
+                {
+                  "name": "таблица",
+                  "value": "таблица"
+                },
+                {
+                  "name": "анализ",
+                  "value": "анализ"
+                },
+                {
+                  "name": "информация",
+                  "value": "информация"
+                },
+                {
+                  "name": "UI агент",
+                  "value": "UI агент"
+                },
+                {
+                  "name": "GUI",
+                  "value": "GUI"
+                },
+                {
+                  "name": "скриншоты",
+                  "value": "скриншоты"
+                },
+                {
+                  "name": "компьютерное зрение",
+                  "value": "компьютерное зрение"
+                },
+                {
+                  "name": "количество",
+                  "value": "количество"
+                },
+                {
+                  "name": "материалы",
+                  "value": "материалы"
+                },
+                {
+                  "name": "вопрос",
+                  "value": "вопрос"
+                },
+                {
+                  "name": "японский стартап",
+                  "value": "японский стартап"
+                },
+                {
+                  "name": "инновации",
+                  "value": "инновации"
+                },
+                {
+                  "name": "дизайн ИИ",
+                  "value": "дизайн ИИ"
+                },
+                {
+                  "name": "теории сознания",
+                  "value": "теории сознания"
+                },
+                {
+                  "name": "эмоциональная зависимость",
+                  "value": "эмоциональная зависимость"
+                },
+                {
+                  "name": "LLM",
+                  "value": "LLM"
+                },
+                {
+                  "name": "языковые модели",
+                  "value": "языковые модели"
+                },
+                {
+                  "name": "философия",
+                  "value": "философия"
+                },
+                {
+                  "name": "Мюррей Шанахан",
+                  "value": "Мюррей Шанахан"
+                },
+                {
+                  "name": "Patreon",
+                  "value": "Patreon"
+                },
+                {
+                  "name": "выгрузка",
+                  "value": "выгрузка"
+                },
+                {
+                  "name": "контент",
+                  "value": "контент"
+                },
+                {
+                  "name": "автор",
+                  "value": "автор"
+                },
+                {
+                  "name": "Малоизвестное интересное",
+                  "value": "Малоизвестное интересное"
+                },
+                {
+                  "name": "анализ URL",
+                  "value": "анализ URL"
+                },
+                {
+                  "name": "извлечение информации",
+                  "value": "извлечение информации"
+                },
+                {
+                  "name": "структурированные данные",
+                  "value": "структурированные данные"
+                },
+                {
+                  "name": "JSON",
+                  "value": "JSON"
+                },
+                {
+                  "name": "веб-контент",
+                  "value": "веб-контент"
+                },
+                {
+                  "name": "анализ текста",
+                  "value": "анализ текста"
+                },
+                {
+                  "name": "обработка текста",
+                  "value": "обработка текста"
+                },
+                {
+                  "name": "резюмирование",
+                  "value": "резюмирование"
+                },
+                {
+                  "name": "тегирование",
+                  "value": "тегирование"
+                },
+                {
+                  "name": "дата публикации",
+                  "value": "дата публикации"
+                },
+                {
+                  "name": "искусственная социальность",
+                  "value": "искусственная социальность"
+                },
+                {
+                  "name": "очеловечивание технологий",
+                  "value": "очеловечивание технологий"
+                },
+                {
+                  "name": "взаимодействие человек-машина",
+                  "value": "взаимодействие человек-машина"
+                },
+                {
+                  "name": "Replika",
+                  "value": "Replika"
+                },
+                {
+                  "name": "виртуальный друг",
+                  "value": "виртуальный друг"
+                },
+                {
+                  "name": "искусственная коммуникация",
+                  "value": "искусственная коммуникация"
+                },
+                {
+                  "name": "анализ естественного языка",
+                  "value": "анализ естественного языка"
+                },
+                {
+                  "name": "интеллектуальные информационные системы",
+                  "value": "интеллектуальные информационные системы"
+                },
+                {
+                  "name": "диалоговые системы",
+                  "value": "диалоговые системы"
+                },
+                {
+                  "name": "обработка естественного языка",
+                  "value": "обработка естественного языка"
+                },
+                {
+                  "name": "кризис социологии",
+                  "value": "кризис социологии"
+                },
+                {
+                  "name": "социология как наука",
+                  "value": "социология как наука"
+                },
+                {
+                  "name": "социальная аналитика",
+                  "value": "социальная аналитика"
+                },
+                {
+                  "name": "технологии ИИ",
+                  "value": "технологии ИИ"
+                },
+                {
+                  "name": "будущее социологии",
+                  "value": "будущее социологии"
+                },
+                {
+                  "name": "канал",
+                  "value": "канал"
+                },
+                {
+                  "name": "компьютерная лингвистика",
+                  "value": "компьютерная лингвистика"
+                },
+                {
+                  "name": "социологические исследования",
+                  "value": "социологические исследования"
+                },
+                {
+                  "name": "развитие социологии",
+                  "value": "развитие социологии"
+                },
+                {
+                  "name": "социальность",
+                  "value": "социальность"
+                },
+                {
+                  "name": "онлайн-культура",
+                  "value": "онлайн-культура"
+                },
+                {
+                  "name": "приватность",
+                  "value": "приватность"
+                },
+                {
+                  "name": "социальные взаимодействия",
+                  "value": "социальные взаимодействия"
+                },
+                {
+                  "name": "этика",
+                  "value": "этика"
+                },
+                {
+                  "name": "человеко-машинное взаимодействие",
+                  "value": "человеко-машинное взаимодействие"
+                },
+                {
+                  "name": "когнитивные науки",
+                  "value": "когнитивные науки"
+                },
+                {
+                  "name": "человеко-машинный интерфейс",
+                  "value": "человеко-машинный интерфейс"
+                },
+                {
+                  "name": "Исследование",
+                  "value": "Исследование"
+                },
+                {
+                  "name": "Washington Post",
+                  "value": "Washington Post"
+                },
+                {
+                  "name": "Чат-бот",
+                  "value": "Чат-бот"
+                },
+                {
+                  "name": "Пользователи",
+                  "value": "Пользователи"
+                },
+                {
+                  "name": "Эмоциональная зависимость",
+                  "value": "Эмоциональная зависимость"
+                },
+                {
+                  "name": "когнитивная робототехника",
+                  "value": "когнитивная робототехника"
+                },
+                {
+                  "name": "дейтинг",
+                  "value": "дейтинг"
+                },
+                {
+                  "name": "отношения",
+                  "value": "отношения"
+                },
+                {
+                  "name": "бот",
+                  "value": "бот"
+                },
+                {
+                  "name": "обработка контента",
+                  "value": "обработка контента"
+                },
+                {
+                  "name": "резюме",
+                  "value": "резюме"
+                },
+                {
+                  "name": "теги",
+                  "value": "теги"
+                },
+                {
+                  "name": "Telegram",
+                  "value": "Telegram"
+                },
+                {
+                  "name": "недостаточно данных",
+                  "value": "недостаточно данных"
+                },
+                {
+                  "name": "отсутствие данных",
+                  "value": "отсутствие данных"
+                },
+                {
+                  "name": "невозможно определить",
+                  "value": "невозможно определить"
+                },
+                {
+                  "name": "GigaChat",
+                  "value": "GigaChat"
+                },
+                {
+                  "name": "open source",
+                  "value": "open source"
+                },
+                {
+                  "name": "нейросети",
+                  "value": "нейросети"
+                },
+                {
+                  "name": "SberDevices",
+                  "value": "SberDevices"
+                },
+                {
+                  "name": "отсутствуют",
+                  "value": "отсутствуют"
+                },
+                {
+                  "name": "невозможно",
+                  "value": "невозможно"
+                },
+                {
+                  "name": "извлечь",
+                  "value": "извлечь"
+                },
+                {
+                  "name": "нет",
+                  "value": "нет"
+                },
+                {
+                  "name": "информации",
+                  "value": "информации"
+                },
+                {
+                  "name": "в",
+                  "value": "в"
+                },
+                {
+                  "name": "тексте",
+                  "value": "тексте"
+                },
+                {
+                  "name": "взаимодействие человека и ИИ",
+                  "value": "взаимодействие человека и ИИ"
+                },
+                {
+                  "name": "рассуждения",
+                  "value": "рассуждения"
+                },
+                {
+                  "name": "мета-когнитивный контроль",
+                  "value": "мета-когнитивный контроль"
+                },
+                {
+                  "name": "анализ мышления",
+                  "value": "анализ мышления"
+                },
+                {
+                  "name": "структура мышления",
+                  "value": "структура мышления"
+                },
+                {
+                  "name": "агенты",
+                  "value": "агенты"
+                },
+                {
+                  "name": "мышление",
+                  "value": "мышление"
+                },
+                {
+                  "name": "обработка",
+                  "value": "обработка"
+                },
+                {
+                  "name": "обучение",
+                  "value": "обучение"
+                },
+                {
+                  "name": "контекстная инженерия",
+                  "value": "контекстная инженерия"
+                },
+                {
+                  "name": "промпт-инженерия",
+                  "value": "промпт-инженерия"
+                },
+                {
+                  "name": "динамическая интеграция",
+                  "value": "динамическая интеграция"
+                },
+                {
+                  "name": "архитектура AI",
+                  "value": "архитектура AI"
+                },
+                {
+                  "name": "промт-инженерия",
+                  "value": "промт-инженерия"
+                },
+                {
+                  "name": "адаптивность",
+                  "value": "адаптивность"
+                },
+                {
+                  "name": "контекст-инжиниринг",
+                  "value": "контекст-инжиниринг"
+                },
+                {
+                  "name": "промпт-инжиниринг",
+                  "value": "промпт-инжиниринг"
+                },
+                {
+                  "name": "Gartner",
+                  "value": "Gartner"
+                },
+                {
+                  "name": "информационная среда",
+                  "value": "информационная среда"
+                },
+                {
+                  "name": "принятие решений",
+                  "value": "принятие решений"
+                },
+                {
+                  "name": "мультиагентные системы",
+                  "value": "мультиагентные системы"
+                },
+                {
+                  "name": "динамические данные",
+                  "value": "динамические данные"
+                },
+                {
+                  "name": "архитектура ИИ",
+                  "value": "архитектура ИИ"
+                },
+                {
+                  "name": "генеративный ИИ",
+                  "value": "генеративный ИИ"
+                },
+                {
+                  "name": "запрет",
+                  "value": "запрет"
+                },
+                {
+                  "name": "Иллинойс",
+                  "value": "Иллинойс"
+                },
+                {
+                  "name": "законодательство",
+                  "value": "законодательство"
+                },
+                {
+                  "name": "ментальное здоровье",
+                  "value": "ментальное здоровье"
+                },
+                {
+                  "name": "запреты",
+                  "value": "запреты"
+                },
+                {
+                  "name": "регулирование",
+                  "value": "регулирование"
+                },
+                {
+                  "name": "США",
+                  "value": "США"
+                },
+                {
+                  "name": "здравоохранение",
+                  "value": "здравоохранение"
+                },
+                {
+                  "name": "Ноам Хомски",
+                  "value": "Ноам Хомски"
+                },
+                {
+                  "name": "галлюцинации",
+                  "value": "галлюцинации"
+                },
+                {
+                  "name": "человеческий интеллект",
+                  "value": "человеческий интеллект"
+                },
+                {
+                  "name": "трансформеры",
+                  "value": "трансформеры"
+                },
+                {
+                  "name": "базы данных",
+                  "value": "базы данных"
+                },
+                {
+                  "name": "модульность",
+                  "value": "модульность"
+                },
+                {
+                  "name": "оптимизация",
+                  "value": "оптимизация"
+                },
+                {
+                  "name": "модель рассуждений",
+                  "value": "модель рассуждений"
+                },
+                {
+                  "name": "открытый исходный код",
+                  "value": "открытый исходный код"
+                },
+                {
+                  "name": "математика",
+                  "value": "математика"
+                },
+                {
+                  "name": "программирование",
+                  "value": "программирование"
+                },
+                {
+                  "name": "наука",
+                  "value": "наука"
+                },
+                {
+                  "name": "Qwen2.5",
+                  "value": "Qwen2.5"
+                },
+                {
+                  "name": "восстание машин",
+                  "value": "восстание машин"
+                },
+                {
+                  "name": "опрос",
+                  "value": "опрос"
+                },
+                {
+                  "name": "россияне",
+                  "value": "россияне"
+                },
+                {
+                  "name": "риски технологий",
+                  "value": "риски технологий"
+                },
+                {
+                  "name": "общество",
+                  "value": "общество"
+                },
+                {
+                  "name": "обучение и развитие",
+                  "value": "обучение и развитие"
+                },
+                {
+                  "name": "персонализация",
+                  "value": "персонализация"
+                },
+                {
+                  "name": "навыки",
+                  "value": "навыки"
+                },
+                {
+                  "name": "трансформация",
+                  "value": "трансформация"
+                },
+                {
+                  "name": "AI-тьютор",
+                  "value": "AI-тьютор"
+                },
+                {
+                  "name": "нейросеть",
+                  "value": "нейросеть"
+                },
+                {
+                  "name": "самоанализ",
+                  "value": "самоанализ"
+                },
+                {
+                  "name": "коммуникация",
+                  "value": "коммуникация"
+                },
+                {
+                  "name": "интеллект",
+                  "value": "интеллект"
+                },
+                {
+                  "name": "Когнитивные науки",
+                  "value": "Когнитивные науки"
+                },
+                {
+                  "name": "Человеческий интеллект",
+                  "value": "Человеческий интеллект"
+                },
+                {
+                  "name": "Галлюцинации ИИ",
+                  "value": "Галлюцинации ИИ"
+                },
+                {
+                  "name": "Философия",
+                  "value": "Философия"
+                },
+                {
+                  "name": "Интервью",
+                  "value": "Интервью"
+                },
+                {
+                  "name": "Галлюцинации",
+                  "value": "Галлюцинации"
+                },
+                {
+                  "name": "интервью",
+                  "value": "интервью"
+                },
+                {
+                  "name": "методология социологии",
+                  "value": "методология социологии"
+                },
+                {
+                  "name": "сознание ИИ",
+                  "value": "сознание ИИ"
+                },
+                {
+                  "name": "дизайн механизмов",
+                  "value": "дизайн механизмов"
+                },
+                {
+                  "name": "методология науки",
+                  "value": "методология науки"
+                },
+                {
+                  "name": "методология",
+                  "value": "методология"
+                },
+                {
+                  "name": "дизайн взаимодействия",
+                  "value": "дизайн взаимодействия"
+                },
+                {
+                  "name": "документ",
+                  "value": "документ"
+                },
+                {
+                  "name": "форматирование",
+                  "value": "форматирование"
+                },
+                {
+                  "name": "текст",
+                  "value": "текст"
+                },
+                {
+                  "name": "редактирование",
+                  "value": "редактирование"
+                },
+                {
+                  "name": "антропоморфизация",
+                  "value": "антропоморфизация"
+                },
+                {
+                  "name": "риски",
+                  "value": "риски"
+                },
+                {
+                  "name": "интеллектуальные системы",
+                  "value": "интеллектуальные системы"
+                },
+                {
+                  "name": "анализ рассуждений",
+                  "value": "анализ рассуждений"
+                },
+                {
+                  "name": "модели мышления",
+                  "value": "модели мышления"
+                },
+                {
+                  "name": "мозг",
+                  "value": "мозг"
+                },
+                {
+                  "name": "Whisper",
+                  "value": "Whisper"
+                },
+                {
+                  "name": "AGI",
+                  "value": "AGI"
+                },
+                {
+                  "name": "социализация",
+                  "value": "социализация"
+                },
+                {
+                  "name": "OpenAI",
+                  "value": "OpenAI"
+                },
+                {
+                  "name": "MIT",
+                  "value": "MIT"
+                },
+                {
+                  "name": "рынок труда",
+                  "value": "рынок труда"
+                },
+                {
+                  "name": "будущее профессий",
+                  "value": "будущее профессий"
+                },
+                {
+                  "name": "Anthropic",
+                  "value": "Anthropic"
+                },
+                {
+                  "name": "замена программистов",
+                  "value": "замена программистов"
+                },
+                {
+                  "name": "терапия",
+                  "value": "терапия"
+                },
+                {
+                  "name": "тревога",
+                  "value": "тревога"
+                },
+                {
+                  "name": "расстройства пищевого поведения",
+                  "value": "расстройства пищевого поведения"
+                },
+                {
+                  "name": "прогноз",
+                  "value": "прогноз"
+                },
+                {
+                  "name": "эмпатия",
+                  "value": "эмпатия"
+                },
+                {
+                  "name": "сочувствие",
+                  "value": "сочувствие"
+                },
+                {
+                  "name": "оценка",
+                  "value": "оценка"
+                },
+                {
+                  "name": "человек",
+                  "value": "человек"
+                },
+                {
+                  "name": "ответы",
+                  "value": "ответы"
+                },
+                {
+                  "name": "сверхинтеллект",
+                  "value": "сверхинтеллект"
+                },
+                {
+                  "name": "AI 2027",
+                  "value": "AI 2027"
+                },
+                {
+                  "name": "будущее ИИ",
+                  "value": "будущее ИИ"
+                },
+                {
+                  "name": "GenAI",
+                  "value": "GenAI"
+                },
+                {
+                  "name": "генерация кода",
+                  "value": "генерация кода"
+                },
+                {
+                  "name": "промпты",
+                  "value": "промпты"
+                },
+                {
+                  "name": "эмоциональное здоровье",
+                  "value": "эмоциональное здоровье"
+                },
+                {
+                  "name": "ментальные ограничения",
+                  "value": "ментальные ограничения"
+                },
+                {
+                  "name": "саморазвитие",
+                  "value": "саморазвитие"
+                },
+                {
+                  "name": "разработка ПО",
+                  "value": "разработка ПО"
+                },
+                {
+                  "name": "тенденции",
+                  "value": "тенденции"
+                },
+                {
+                  "name": "эмпирическое обучение",
+                  "value": "эмпирическое обучение"
+                },
+                {
+                  "name": "сверхчеловеческий интеллект",
+                  "value": "сверхчеловеческий интеллект"
+                },
+                {
+                  "name": "обучение на опыте",
+                  "value": "обучение на опыте"
+                },
+                {
+                  "name": "восприятие",
+                  "value": "восприятие"
+                },
+                {
+                  "name": "память",
+                  "value": "память"
+                },
+                {
+                  "name": "микробиом",
+                  "value": "микробиом"
+                },
+                {
+                  "name": "интероцепция",
+                  "value": "интероцепция"
+                },
+                {
+                  "name": "когнитивные искажения",
+                  "value": "когнитивные искажения"
+                },
+                {
+                  "name": "цифровой двойник",
+                  "value": "цифровой двойник"
+                },
+                {
+                  "name": "DToE",
+                  "value": "DToE"
+                },
+                {
+                  "name": "производительность",
+                  "value": "производительность"
+                },
+                {
+                  "name": "безопасность",
+                  "value": "безопасность"
+                },
+                {
+                  "name": "цифровая трансформация",
+                  "value": "цифровая трансформация"
+                },
+                {
+                  "name": "employee experience",
+                  "value": "employee experience"
+                },
+                {
+                  "name": "управление персоналом",
+                  "value": "управление персоналом"
+                },
+                {
+                  "name": "карьера",
+                  "value": "карьера"
+                },
+                {
+                  "name": "GPT",
+                  "value": "GPT"
+                },
+                {
+                  "name": "Gemini",
+                  "value": "Gemini"
+                },
+                {
+                  "name": "публичные выступления",
+                  "value": "публичные выступления"
+                },
+                {
+                  "name": "ораторское мастерство",
+                  "value": "ораторское мастерство"
+                },
+                {
+                  "name": "анализ речи",
+                  "value": "анализ речи"
+                },
+                {
+                  "name": "тонкие срезы",
+                  "value": "тонкие срезы"
+                },
+                {
+                  "name": "критическое мышление",
+                  "value": "критическое мышление"
+                },
+                {
+                  "name": "тренажер",
+                  "value": "тренажер"
+                },
+                {
+                  "name": "решение проблем",
+                  "value": "решение проблем"
+                },
+                {
+                  "name": "Сэм Альтман",
+                  "value": "Сэм Альтман"
+                },
+                {
+                  "name": "прогнозы",
+                  "value": "прогнозы"
+                },
+                {
+                  "name": "YouTube",
+                  "value": "YouTube"
+                },
+                {
+                  "name": "недоступно",
+                  "value": "недоступно"
+                },
+                {
+                  "name": "ошибка",
+                  "value": "ошибка"
+                },
+                {
+                  "name": "просмотр",
+                  "value": "просмотр"
+                },
+                {
+                  "name": "главная страница",
+                  "value": "главная страница"
+                },
+                {
+                  "name": "мотивация",
+                  "value": "мотивация"
+                },
+                {
+                  "name": "студенты",
+                  "value": "студенты"
+                },
+                {
+                  "name": "AIMS",
+                  "value": "AIMS"
+                },
+                {
+                  "name": "самодетерминация",
+                  "value": "самодетерминация"
+                },
+                {
+                  "name": "восприятие технологий",
+                  "value": "восприятие технологий"
+                },
+                {
+                  "name": "название технологии",
+                  "value": "название технологии"
+                },
+                {
+                  "name": "общественное мнение",
+                  "value": "общественное мнение"
+                },
+                {
+                  "name": "научная коммуникация",
+                  "value": "научная коммуникация"
+                },
+                {
+                  "name": "пищевые технологии",
+                  "value": "пищевые технологии"
+                },
+                {
+                  "name": "формирование отношения",
+                  "value": "формирование отношения"
+                },
+                {
+                  "name": "категоризация",
+                  "value": "категоризация"
+                },
+                {
+                  "name": "успеваемость",
+                  "value": "успеваемость"
+                },
+                {
+                  "name": "NVIDIA",
+                  "value": "NVIDIA"
+                },
+                {
+                  "name": "Cosmos",
+                  "value": "Cosmos"
+                },
+                {
+                  "name": "мировая модель",
+                  "value": "мировая модель"
+                },
+                {
+                  "name": "Droider",
+                  "value": "Droider"
+                },
+                {
+                  "name": "репутация",
+                  "value": "репутация"
+                },
+                {
+                  "name": "отношения в коллективе",
+                  "value": "отношения в коллективе"
+                },
+                {
+                  "name": "внедрение ИИ",
+                  "value": "внедрение ИИ"
+                },
+                {
+                  "name": "ИИ-зависимость",
+                  "value": "ИИ-зависимость"
+                },
+                {
+                  "name": "медиазависимость",
+                  "value": "медиазависимость"
+                },
+                {
+                  "name": "медиаграмотность",
+                  "value": "медиаграмотность"
+                },
+                {
+                  "name": "эмоциональная регуляция",
+                  "value": "эмоциональная регуляция"
+                },
+                {
+                  "name": "когнитивные функции",
+                  "value": "когнитивные функции"
+                },
+                {
+                  "name": "ЭЭГ",
+                  "value": "ЭЭГ"
+                },
+                {
+                  "name": "нейронные связи",
+                  "value": "нейронные связи"
+                },
+                {
+                  "name": "когнитивный долг",
+                  "value": "когнитивный долг"
+                },
+                {
+                  "name": "ошибки",
+                  "value": "ошибки"
+                },
+                {
+                  "name": "пользователь",
+                  "value": "пользователь"
+                },
+                {
+                  "name": "промпт",
+                  "value": "промпт"
+                },
+                {
+                  "name": "обвинение",
+                  "value": "обвинение"
+                },
+                {
+                  "name": "модель поведения",
+                  "value": "модель поведения"
+                },
+                {
+                  "name": "психика человека",
+                  "value": "психика человека"
+                },
+                {
+                  "name": "прогнозирование",
+                  "value": "прогнозирование"
+                },
+                {
+                  "name": "Hugging Face",
+                  "value": "Hugging Face"
+                },
+                {
+                  "name": "Grok Heavy",
+                  "value": "Grok Heavy"
+                },
+                {
+                  "name": "экзамен",
+                  "value": "экзамен"
+                },
+                {
+                  "name": "модель",
+                  "value": "модель"
+                },
+                {
+                  "name": "достижение",
+                  "value": "достижение"
+                },
+                {
+                  "name": "Grok",
+                  "value": "Grok"
+                },
+                {
+                  "name": "политкорректность",
+                  "value": "политкорректность"
+                },
+                {
+                  "name": "инструкции",
+                  "value": "инструкции"
+                },
+                {
+                  "name": "нейтральность",
+                  "value": "нейтральность"
+                },
+                {
+                  "name": "пользовательский опыт",
+                  "value": "пользовательский опыт"
+                },
+                {
+                  "name": "context engineering",
+                  "value": "context engineering"
+                },
+                {
+                  "name": "prompt engineering",
+                  "value": "prompt engineering"
+                },
+                {
+                  "name": "RAG",
+                  "value": "RAG"
+                },
+                {
+                  "name": "контекст",
+                  "value": "контекст"
+                },
+                {
+                  "name": "Context Engineering",
+                  "value": "Context Engineering"
+                },
+                {
+                  "name": "Large Language Models",
+                  "value": "Large Language Models"
+                },
+                {
+                  "name": "LLM Agent",
+                  "value": "LLM Agent"
+                },
+                {
+                  "name": "Multi-Agent Systems",
+                  "value": "Multi-Agent Systems"
+                },
+                {
+                  "name": "Context Management",
+                  "value": "Context Management"
+                },
+                {
+                  "name": "Context Processing",
+                  "value": "Context Processing"
+                },
+                {
+                  "name": "Нейросети",
+                  "value": "Нейросети"
+                },
+                {
+                  "name": "Этика",
+                  "value": "Этика"
+                },
+                {
+                  "name": "Контроль",
+                  "value": "Контроль"
+                },
+                {
+                  "name": "Безопасность",
+                  "value": "Безопасность"
+                },
+                {
+                  "name": "Свобода мысли",
+                  "value": "Свобода мысли"
+                },
+                {
+                  "name": "Преступность",
+                  "value": "Преступность"
+                },
+                {
+                  "name": "большие данные",
+                  "value": "большие данные"
+                },
+                {
+                  "name": "поведение человека",
+                  "value": "поведение человека"
+                },
+                {
+                  "name": "социальные науки",
+                  "value": "социальные науки"
+                },
+                {
+                  "name": "междисциплинарность",
+                  "value": "междисциплинарность"
+                },
+                {
+                  "name": "Genie 3",
+                  "value": "Genie 3"
+                },
+                {
+                  "name": "artificial intelligence",
+                  "value": "artificial intelligence"
+                },
+                {
+                  "name": "dynamic data",
+                  "value": "dynamic data"
+                },
+                {
+                  "name": "human-AI interfaces",
+                  "value": "human-AI interfaces"
+                },
+                {
+                  "name": "context-aware architectures",
+                  "value": "context-aware architectures"
+                },
+                {
+                  "name": "мультимодальность",
+                  "value": "мультимодальность"
+                },
+                {
+                  "name": "ChatGPT 5",
+                  "value": "ChatGPT 5"
+                },
+                {
+                  "name": "System Prompt",
+                  "value": "System Prompt"
+                },
+                {
+                  "name": "Слив",
+                  "value": "Слив"
+                },
+                {
+                  "name": "Хакеры",
+                  "value": "Хакеры"
+                },
+                {
+                  "name": "Анализ",
+                  "value": "Анализ"
+                },
+                {
+                  "name": "закон",
+                  "value": "закон"
+                },
+                {
+                  "name": "анализ личности",
+                  "value": "анализ личности"
+                },
+                {
+                  "name": "энеаграмма",
+                  "value": "энеаграмма"
+                },
+                {
+                  "name": "астрология",
+                  "value": "астрология"
+                },
+                {
+                  "name": "ограничения",
+                  "value": "ограничения"
+                },
+                {
+                  "name": "лингвистика",
+                  "value": "лингвистика"
+                },
+                {
+                  "name": "логика",
+                  "value": "логика"
+                },
+                {
+                  "name": "нейронные сети",
+                  "value": "нейронные сети"
+                },
+                {
+                  "name": "базы знаний",
+                  "value": "базы знаний"
+                },
+                {
+                  "name": "со-обучение",
+                  "value": "со-обучение"
+                },
+                {
+                  "name": "сотрудничество человека и ИИ",
+                  "value": "сотрудничество человека и ИИ"
+                },
+                {
+                  "name": "обучение на рабочем месте",
+                  "value": "обучение на рабочем месте"
+                },
+                {
+                  "name": "развитие навыков",
+                  "value": "развитие навыков"
+                },
+                {
+                  "name": "эффективность",
+                  "value": "эффективность"
+                },
+                {
+                  "name": "ризонинг",
+                  "value": "ризонинг"
+                },
+                {
+                  "name": "Иван Оселедец",
+                  "value": "Иван Оселедец"
+                },
+                {
+                  "name": "AIRI",
+                  "value": "AIRI"
+                },
+                {
+                  "name": "Data Fest 2025",
+                  "value": "Data Fest 2025"
+                },
+                {
+                  "name": "россия",
+                  "value": "россия"
+                },
+                {
+                  "name": "романтические отношения",
+                  "value": "романтические отношения"
+                },
+                {
+                  "name": "любовь",
+                  "value": "любовь"
+                },
+                {
+                  "name": "виртуальные отношения",
+                  "value": "виртуальные отношения"
+                },
+                {
+                  "name": "развитие",
+                  "value": "развитие"
+                },
+                {
+                  "name": "мошенничество",
+                  "value": "мошенничество"
+                },
+                {
+                  "name": "эксперимент",
+                  "value": "эксперимент"
+                },
+                {
+                  "name": "честность",
+                  "value": "честность"
+                },
+                {
+                  "name": "ответственность",
+                  "value": "ответственность"
+                },
+                {
+                  "name": "hallucination detection",
+                  "value": "hallucination detection"
+                },
+                {
+                  "name": "fact-checking",
+                  "value": "fact-checking"
+                },
+                {
+                  "name": "claim verification",
+                  "value": "claim verification"
+                },
+                {
+                  "name": "evidence-free",
+                  "value": "evidence-free"
+                },
+                {
+                  "name": "uncertainty quantification",
+                  "value": "uncertainty quantification"
+                },
+                {
+                  "name": "model representations",
+                  "value": "model representations"
+                },
+                {
+                  "name": "нейроадаптивный чат-бот",
+                  "value": "нейроадаптивный чат-бот"
+                },
+                {
+                  "name": "NeuroChat",
+                  "value": "NeuroChat"
+                },
+                {
+                  "name": "MIT Media Lab",
+                  "value": "MIT Media Lab"
+                },
+                {
+                  "name": "когнитивное вовлечение",
+                  "value": "когнитивное вовлечение"
+                },
+                {
+                  "name": "персонализированное обучение",
+                  "value": "персонализированное обучение"
+                },
+                {
+                  "name": "вайб-кодинг",
+                  "value": "вайб-кодинг"
+                },
+                {
+                  "name": "разработка",
+                  "value": "разработка"
+                },
+                {
+                  "name": "тестирование",
+                  "value": "тестирование"
+                },
+                {
+                  "name": "QA",
+                  "value": "QA"
+                },
+                {
+                  "name": "технический долг",
+                  "value": "технический долг"
+                },
+                {
+                  "name": "качество",
+                  "value": "качество"
+                },
+                {
+                  "name": "маркетинг",
+                  "value": "маркетинг"
+                },
+                {
+                  "name": "покупатель",
+                  "value": "покупатель"
+                },
+                {
+                  "name": "PyMC Labs",
+                  "value": "PyMC Labs"
+                },
+                {
+                  "name": "Корнелльский университет",
+                  "value": "Корнелльский университет"
+                },
+                {
+                  "name": "грубость",
+                  "value": "грубость"
+                },
+                {
+                  "name": "языковая модель",
+                  "value": "языковая модель"
+                },
+                {
+                  "name": "атака",
+                  "value": "атака"
+                },
+                {
+                  "name": "отравление данных",
+                  "value": "отравление данных"
+                },
+                {
+                  "name": "бэкдор",
+                  "value": "бэкдор"
+                },
+                {
+                  "name": "аудит",
+                  "value": "аудит"
+                },
+                {
+                  "name": "Petri",
+                  "value": "Petri"
+                },
+                {
+                  "name": "чат-боты",
+                  "value": "чат-боты"
+                },
+                {
+                  "name": "виртуальные ассистенты",
+                  "value": "виртуальные ассистенты"
+                },
+                {
+                  "name": "НАФИ",
+                  "value": "НАФИ"
+                },
+                {
+                  "name": "рекурсивное рассуждение",
+                  "value": "рекурсивное рассуждение"
+                },
+                {
+                  "name": "маленькие нейронные сети",
+                  "value": "маленькие нейронные сети"
+                },
+                {
+                  "name": "обобщение",
+                  "value": "обобщение"
+                },
+                {
+                  "name": "ARC-AGI",
+                  "value": "ARC-AGI"
+                },
+                {
+                  "name": "эффективность параметров",
+                  "value": "эффективность параметров"
+                },
+                {
+                  "name": "глубокое обучение",
+                  "value": "глубокое обучение"
+                },
+                {
+                  "name": "судоку",
+                  "value": "судоку"
+                },
+                {
+                  "name": "Learn Your Way",
+                  "value": "Learn Your Way"
+                },
+                {
+                  "name": "подростки",
+                  "value": "подростки"
+                },
+                {
+                  "name": "офисные приложения",
+                  "value": "офисные приложения"
+                },
+                {
+                  "name": "бизнес-модели",
+                  "value": "бизнес-модели"
+                },
+                {
+                  "name": "симуляции",
+                  "value": "симуляции"
+                },
+                {
+                  "name": "RL",
+                  "value": "RL"
+                },
+                {
+                  "name": "обучение с подкреплением",
+                  "value": "обучение с подкреплением"
+                },
+                {
+                  "name": "симуляция",
+                  "value": "симуляция"
+                },
+                {
+                  "name": "RL-тренажеры",
+                  "value": "RL-тренажеры"
+                },
+                {
+                  "name": "безопасность AI",
+                  "value": "безопасность AI"
+                },
+                {
+                  "name": "обучение AI",
+                  "value": "обучение AI"
+                },
+                {
+                  "name": "RL-обучение",
+                  "value": "RL-обучение"
+                },
+                {
+                  "name": "виртуальные офисы",
+                  "value": "виртуальные офисы"
+                },
+                {
+                  "name": "multiagent RL",
+                  "value": "multiagent RL"
+                },
+                {
+                  "name": "деградация",
+                  "value": "деградация"
+                },
+                {
+                  "name": "социальные сети",
+                  "value": "социальные сети"
+                },
+                {
+                  "name": "качество данных",
+                  "value": "качество данных"
+                },
+                {
+                  "name": "алгокогнитивная культура",
+                  "value": "алгокогнитивная культура"
+                },
+                {
+                  "name": "когнитивный переход",
+                  "value": "когнитивный переход"
+                },
+                {
+                  "name": "глубокое чтение",
+                  "value": "глубокое чтение"
+                },
+                {
+                  "name": "цифровая среда",
+                  "value": "цифровая среда"
+                },
+                {
+                  "name": "когнитивные гаджеты",
+                  "value": "когнитивные гаджеты"
+                },
+                {
+                  "name": "онлайн знакомства",
+                  "value": "онлайн знакомства"
+                },
+                {
+                  "name": "тест Тьюринга",
+                  "value": "тест Тьюринга"
+                },
+                {
+                  "name": "пост-тьюринговая эра",
+                  "value": "пост-тьюринговая эра"
+                },
+                {
+                  "name": "виртуализация",
+                  "value": "виртуализация"
+                },
+                {
+                  "name": "Лукаш Кайзер",
+                  "value": "Лукаш Кайзер"
+                },
+                {
+                  "name": "Трансформеры",
+                  "value": "Трансформеры"
+                },
+                {
+                  "name": "Модели рассуждения",
+                  "value": "Модели рассуждения"
+                },
+                {
+                  "name": "Машинное обучение",
+                  "value": "Машинное обучение"
+                },
+                {
+                  "name": "архитектуры ИИ",
+                  "value": "архитектуры ИИ"
+                },
+                {
+                  "name": "Transformer",
+                  "value": "Transformer"
+                },
+                {
+                  "name": "симпозиум",
+                  "value": "симпозиум"
+                },
+                {
+                  "name": "мотивы",
+                  "value": "мотивы"
+                },
+                {
+                  "name": "интересы",
+                  "value": "интересы"
+                },
+                {
+                  "name": "эксперименты",
+                  "value": "эксперименты"
+                },
+                {
+                  "name": "доверие",
+                  "value": "доверие"
+                },
+                {
+                  "name": "распознавание",
+                  "value": "распознавание"
+                },
+                {
+                  "name": "распознавание мотивов",
+                  "value": "распознавание мотивов"
+                },
+                {
+                  "name": "IT-специалисты",
+                  "value": "IT-специалисты"
+                },
+                {
+                  "name": "сокращения",
+                  "value": "сокращения"
+                },
+                {
+                  "name": "hh.ru",
+                  "value": "hh.ru"
+                },
+                {
+                  "name": "Инфосистемы Джет",
+                  "value": "Инфосистемы Джет"
+                },
+                {
+                  "name": "кадровый дефицит",
+                  "value": "кадровый дефицит"
+                },
+                {
+                  "name": "увольнения",
+                  "value": "увольнения"
+                },
+                {
+                  "name": "увольнение",
+                  "value": "увольнение"
+                },
+                {
+                  "name": "Reddit",
+                  "value": "Reddit"
+                },
+                {
+                  "name": "истории",
+                  "value": "истории"
+                },
+                {
+                  "name": "инжиниринг контекста",
+                  "value": "инжиниринг контекста"
+                },
+                {
+                  "name": "инжиниринг подсказок",
+                  "value": "инжиниринг подсказок"
+                },
+                {
+                  "name": "динамическая интеграция данных",
+                  "value": "динамическая интеграция данных"
+                },
+                {
+                  "name": "предпринимательский ИИ",
+                  "value": "предпринимательский ИИ"
+                },
+                {
+                  "name": "AI Leaders",
+                  "value": "AI Leaders"
+                },
+                {
+                  "name": "инженерия контекста",
+                  "value": "инженерия контекста"
+                },
+                {
+                  "name": "инженерия запросов",
+                  "value": "инженерия запросов"
+                },
+                {
+                  "name": "контекстно-зависимые архитектуры",
+                  "value": "контекстно-зависимые архитектуры"
+                },
+                {
+                  "name": " Gartner",
+                  "value": " Gartner"
+                },
+                {
+                  "name": "корпоративный ИИ",
+                  "value": "корпоративный ИИ"
+                },
+                {
+                  "name": "адаптивность ИИ",
+                  "value": "адаптивность ИИ"
+                },
+                {
+                  "name": "контекстный инжиниринг",
+                  "value": "контекстный инжиниринг"
+                },
+                {
+                  "name": "управление контекстом",
+                  "value": "управление контекстом"
+                },
+                {
+                  "name": "контекстно-ориентированные архитектуры",
+                  "value": "контекстно-ориентированные архитектуры"
+                },
+                {
+                  "name": "адаптивность AI",
+                  "value": "адаптивность AI"
+                },
+                {
+                  "name": "инжиниринг запросов",
+                  "value": "инжиниринг запросов"
+                },
+                {
+                  "name": "эволюция ИИ",
+                  "value": "эволюция ИИ"
+                },
+                {
+                  "name": "релевантность",
+                  "value": "релевантность"
+                },
+                {
+                  "name": "рекурсивное обучение",
+                  "value": "рекурсивное обучение"
+                },
+                {
+                  "name": "крошечные сети",
+                  "value": "крошечные сети"
+                },
+                {
+                  "name": "верификация утверждений",
+                  "value": "верификация утверждений"
+                },
+                {
+                  "name": "обнаружение неточностей",
+                  "value": "обнаружение неточностей"
+                },
+                {
+                  "name": "Jina AI",
+                  "value": "Jina AI"
+                },
+                {
+                  "name": "ссылки",
+                  "value": "ссылки"
+                },
+                {
+                  "name": "сервисы",
+                  "value": "сервисы"
+                },
+                {
+                  "name": "веб",
+                  "value": "веб"
+                },
+                {
+                  "name": "инструменты",
+                  "value": "инструменты"
+                },
+                {
+                  "name": "мясо из пробирки",
+                  "value": "мясо из пробирки"
+                },
+                {
+                  "name": "лабораторное мясо",
+                  "value": "лабораторное мясо"
+                },
+                {
+                  "name": "альтернативный белок",
+                  "value": "альтернативный белок"
+                },
+                {
+                  "name": "устойчивое питание",
+                  "value": "устойчивое питание"
+                },
+                {
+                  "name": "будущее еды",
+                  "value": "будущее еды"
+                },
+                {
+                  "name": "интерфейсы человек-ИИ",
+                  "value": "интерфейсы человек-ИИ"
+                },
+                {
+                  "name": "оптимизация моделей",
+                  "value": "оптимизация моделей"
+                },
+                {
+                  "name": "Sudoku",
+                  "value": "Sudoku"
+                },
+                {
+                  "name": "Centaur",
+                  "value": "Centaur"
+                },
+                {
+                  "name": "предсказание поведения",
+                  "value": "предсказание поведения"
+                },
+                {
+                  "name": "Minitaur",
+                  "value": "Minitaur"
+                },
+                {
+                  "name": "Моделирование поведения",
+                  "value": "Моделирование поведения"
+                },
+                {
+                  "name": "Психика человека",
+                  "value": "Психика человека"
+                },
+                {
+                  "name": "Нейронные сети",
+                  "value": "Нейронные сети"
+                },
+                {
+                  "name": "Прогнозирование",
+                  "value": "Прогнозирование"
+                },
+                {
+                  "name": "моделирование поведения",
+                  "value": "моделирование поведения"
+                },
+                {
+                  "name": "предсказание",
+                  "value": "предсказание"
+                },
+                {
+                  "name": "Моделирование психики",
+                  "value": "Моделирование психики"
+                },
+                {
+                  "name": "Предсказание поведения",
+                  "value": "Предсказание поведения"
+                },
+                {
+                  "name": "Psych-101",
+                  "value": "Psych-101"
+                },
+                {
+                  "name": "GPT-4.5",
+                  "value": "GPT-4.5"
+                },
+                {
+                  "name": "супервентность",
+                  "value": "супервентность"
+                },
+                {
+                  "name": "Будущее",
+                  "value": "Будущее"
+                },
+                {
+                  "name": "Автоматизация",
+                  "value": "Автоматизация"
+                },
+                {
+                  "name": "Этика ИИ",
+                  "value": "Этика ИИ"
+                },
+                {
+                  "name": "Рынок труда",
+                  "value": "Рынок труда"
+                },
+                {
+                  "name": "нейронауки",
+                  "value": "нейронауки"
+                },
+                {
+                  "name": "Нейронауки",
+                  "value": "Нейронауки"
+                },
+                {
+                  "name": "Психотерапия",
+                  "value": "Психотерапия"
+                },
+                {
+                  "name": "Супервентность",
+                  "value": "Супервентность"
+                },
+                {
+                  "name": "Анализ личности",
+                  "value": "Анализ личности"
+                },
+                {
+                  "name": "психотерапевт",
+                  "value": "психотерапевт"
+                },
+                {
+                  "name": "нейроучёный",
+                  "value": "нейроучёный"
+                },
+                {
+                  "name": "Нейронаука",
+                  "value": "Нейронаука"
+                },
+                {
+                  "name": "Обработка естественного языка",
+                  "value": "Обработка естественного языка"
+                },
+                {
+                  "name": "нет данных",
+                  "value": "нет данных"
+                },
+                {
+                  "name": "пустой документ",
+                  "value": "пустой документ"
+                },
+                {
+                  "name": "ошибка обработки",
+                  "value": "ошибка обработки"
+                },
+                {
+                  "name": "отсутствует контент",
+                  "value": "отсутствует контент"
+                },
+                {
+                  "name": "речевое взаимодействие",
+                  "value": "речевое взаимодействие"
+                },
+                {
+                  "name": "диалог",
+                  "value": "диалог"
+                },
+                {
+                  "name": "человек-ИИ",
+                  "value": "человек-ИИ"
+                },
+                {
+                  "name": "NLP",
+                  "value": "NLP"
+                },
+                {
+                  "name": "академические дискуссии",
+                  "value": "академические дискуссии"
+                },
+                {
+                  "name": "научные дискуссии",
+                  "value": "научные дискуссии"
+                },
+                {
+                  "name": "теория социологии",
+                  "value": "теория социологии"
+                },
+                {
+                  "name": "социальные изменения",
+                  "value": "социальные изменения"
+                },
+                {
+                  "name": "опыт пользователя",
+                  "value": "опыт пользователя"
+                },
+                {
+                  "name": "Мюррей Шэнахан",
+                  "value": "Мюррей Шэнахан"
+                },
+                {
+                  "name": "ИИ сознание",
+                  "value": "ИИ сознание"
+                },
+                {
+                  "name": "Большие языковые модели",
+                  "value": "Большие языковые модели"
+                },
+                {
+                  "name": "Философия ИИ",
+                  "value": "Философия ИИ"
+                },
+                {
+                  "name": "Антропоморфизация",
+                  "value": "Антропоморфизация"
+                },
+                {
+                  "name": "Машинный интеллект",
+                  "value": "Машинный интеллект"
+                },
+                {
+                  "name": "DeepMind",
+                  "value": "DeepMind"
+                },
+                {
+                  "name": "Когнитивная робототехника",
+                  "value": "Когнитивная робототехника"
+                },
+                {
+                  "name": "ИИ-дейтинг",
+                  "value": "ИИ-дейтинг"
+                },
+                {
+                  "name": "одиночество",
+                  "value": "одиночество"
+                },
+                {
+                  "name": "Loverse",
+                  "value": "Loverse"
+                },
+                {
+                  "name": "стартапы",
+                  "value": "стартапы"
+                },
+                {
+                  "name": "ИИ-отношения",
+                  "value": "ИИ-отношения"
+                },
+                {
+                  "name": "брак с ИИ",
+                  "value": "брак с ИИ"
+                },
+                {
+                  "name": "Будущее Homo",
+                  "value": "Будущее Homo"
+                },
+                {
+                  "name": "цифровая романтика",
+                  "value": "цифровая романтика"
+                },
+                {
+                  "name": "Алгокогнитивная культура",
+                  "value": "Алгокогнитивная культура"
+                },
+                {
+                  "name": "выбор партнера",
+                  "value": "выбор партнера"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Тип материала",
+              "displayName": "Тип материала",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Ссылка",
+                  "value": "Ссылка"
+                },
+                {
+                  "name": "Пост Telegram",
+                  "value": "Пост Telegram"
+                },
+                {
+                  "name": "PDF",
+                  "value": "PDF"
+                },
+                {
+                  "name": "Пост + файл",
+                  "value": "Пост + файл"
+                },
+                {
+                  "name": "Смешанный",
+                  "value": "Смешанный"
+                },
+                {
+                  "name": "Пост Telegram\n",
+                  "value": "Пост Telegram\n"
+                },
+                {
+                  "name": "Пост + файл\n",
+                  "value": "Пост + файл\n"
+                },
+                {
+                  "name": "PDF\n",
+                  "value": "PDF\n"
+                },
+                {
+                  "name": "DOC",
+                  "value": "DOC"
+                },
+                {
+                  "name": "Видео",
+                  "value": "Видео"
+                },
+                {
+                  "name": "PDF (загружен)\n",
+                  "value": "PDF (загружен)\n"
+                },
+                {
+                  "name": "\n",
+                  "value": "\n"
+                },
+                {
+                  "name": "DOCX\n",
+                  "value": "DOCX\n"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Текст исходного поста",
+              "displayName": "Текст исходного поста",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Коммментарий отправителя",
+              "displayName": "Коммментарий отправителя",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Ссылки из поста",
+              "displayName": "Ссылки из поста",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Group ID",
+              "displayName": "Group ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "UUID",
+              "displayName": "UUID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Ссылка на диск",
+              "displayName": "Ссылка на диск",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Supabase File Name",
+              "displayName": "Supabase File Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Текст по ссылке",
+              "displayName": "Текст по ссылке",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        464,
+        976
+      ],
+      "id": "52508a0a-f2fa-40d3-861d-90a1d0a4277a",
+      "name": "Таблица Психология ИИ",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "lMVLXXYfYpxOzlHm",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "61502866-11ea-4e00-93a0-a001e6e60c00",
+              "leftValue": "={{ $json.output }} ",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -208,
+        1072
+      ],
+      "id": "e4feca4e-422d-4829-acaa-31197f13e5b0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "⚠️ Ошибка AI обработки  Не удалось обработать сообщение. Причина: Rate limit или ошибка модели.  Попробуйте отправить позже.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        16,
+        1168
+      ],
+      "id": "f1f63326-7127-4e6c-9ac9-318198a9b5e6",
+      "name": "AI Error Notification",
+      "webhookId": "e2c1e586-0ef8-4071-8c8e-edf7eae29a9b",
+      "credentials": {
+        "telegramApi": {
+          "id": "HL1JsdJi0pZotGkb",
+          "name": "Librarian"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        1296
+      ],
+      "id": "db53765d-5bce-431a-9255-55eeb1fc651b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "pJBYUo5gvbPTOgRC",
+          "name": "Content Keeper 23.12"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3024,
+        1168
+      ],
+      "id": "c1acbbc4-d49f-46b1-869e-3f5e22541573",
+      "name": "Telegram Trigger",
+      "webhookId": "5e715c45-b57e-45af-877b-4c018f7370ee",
+      "credentials": {
+        "telegramApi": {
+          "id": "OUxYQm02IJNTzVCg",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\n\n// Список поддерживаемых MIME типов\nconst supportedTypes = [\n  'application/pdf',\n  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  // DOCX\n  'application/msword'  // DOC (старый формат)\n];\n\n// Проверяем, есть ли ФОТО (отправлено как изображение)\nif (item.message?.photo) {\n  const caption = item.message.caption || '';\n  \n  // Если есть текст (caption) - пропускаем с извлечением текста\n  if (caption.trim().length > 0) {\n    return {\n      json: {\n        ...item,\n        isFileSupported: true,\n        hasPhoto: true,\n        extractedText: caption,\n        mimeType: null,\n        fileType: 'фото с текстом'\n      }\n    };\n  }\n  \n  // Если фото БЕЗ текста - отклоняем\n  return {\n    json: {\n      ...item,\n      isFileSupported: false,\n      hasPhoto: true,\n      mimeType: 'image/jpeg',\n      fileName: 'Фото',\n      fileType: 'изображение'\n    }\n  };\n}\n\n// Проверяем, есть ли документ\nif (item.message?.document) {\n  const mimeType = item.message.document.mime_type;\n  const fileName = item.message.document.file_name || '';\n  const caption = item.message.caption || '';\n  \n  // Проверяем, поддерживается ли формат\n  const isSupported = supportedTypes.includes(mimeType);\n  \n  // Определяем тип файла для сообщения\n  let fileType = 'неизвестный';\n  if (mimeType.includes('image')) fileType = 'изображение';\n  else if (mimeType.includes('epub')) fileType = 'EPUB';\n  else if (mimeType.includes('video')) fileType = 'видео';\n  else if (mimeType.includes('audio')) fileType = 'аудио';\n  else if (mimeType.includes('officedocument.wordprocessingml.document')) fileType = 'DOCX';\n  else if (mimeType === 'application/msword') fileType = 'DOC';\n  else fileType = mimeType;\n  \n  return {\n    json: {\n      ...item,\n      isFileSupported: isSupported,\n      mimeType: mimeType,\n      fileName: fileName,\n      fileType: fileType,\n      extractedText: caption.trim().length > 0 ? caption : null\n    }\n  };\n}\n\n// Если это не файл и не фото (текст, ссылка) - пропускаем дальше\nreturn {\n  json: {\n    ...item,\n    isFileSupported: true,\n    mimeType: null,\n    fileType: null\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        1168
+      ],
+      "id": "a384444f-43f5-4d1a-95cc-795db62c7078",
+      "name": "Filter File Types"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2ae94885-2bc1-46a8-ad0a-c4910dadb4f0",
+              "leftValue": "={{ $json.isFileSupported }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2352,
+        1168
+      ],
+      "id": "eecaae93-cbf5-46b3-b50b-2b425cd95fcb",
+      "name": "Is Format Supported?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=🚫 Формат файла не поддерживается\n📎 Файл: {{ $json.fileName }}\n📋 Тип: {{ $json.fileType }}\n✅ Поддерживаемые форматы:\n• PDF документы\n❌ НЕ поддерживаются:\n• Изображения (JPEG, PNG, GIF и т.д.)\n• Электронные книги (EPUB, MOBI)\n• Видео и аудио файлы\n💡 Отправьте PDF или ссылку на статью.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -2128,
+        1264
+      ],
+      "id": "fa43815d-907e-4927-a7f0-f8f73eaae786",
+      "name": "Notify Unsupported Format",
+      "webhookId": "42a9e097-ad1c-4e34-a5ba-5ba59fbdb409",
+      "credentials": {
+        "telegramApi": {
+          "id": "OUxYQm02IJNTzVCg",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ Успешно добавлено в базу\n\n📌 {{  $json.fields['Название'] || 'Без названия' }} \n\n💾 Файл: {{\n  $json.fields['Ссылка на диск'] &&\n  (\n    $json.fields['Ссылка на диск'].startsWith('https://drive.google.com') ||\n    $json.fields['Ссылка на диск'].startsWith('https://docs.google.com')\n  )\n    ? '✅ Загружен на Google Drive'\n    : '❌ Не загружен / Отсутствует'\n}}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        688,
+        880
+      ],
+      "id": "dc4719b4-45f6-4243-af59-034ebc3e7112",
+      "name": "Notify Success",
+      "webhookId": "4ed8b9c9-7412-4bdb-8077-4972263f6bfe",
+      "credentials": {
+        "telegramApi": {
+          "id": "OUxYQm02IJNTzVCg",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst error = item.error || {};\nconst message = error.message || '';\nconst httpCode = error.httpCode || '';\n\nlet errorType = 'Неизвестная ошибка';\nlet errorDetails = '';\nlet canRetry = false;\n\n// Классифицируем ошибку\nif (httpCode === '429' || message.includes('rate limit')) {\n  errorType = 'Превышен лимит запросов';\n  errorDetails = 'Airtable API ограничивает количество запросов. Попробуйте через 30 секунд.';\n  canRetry = true;\n  \n} else if (httpCode === '503' || message.includes('temporarily unavailable')) {\n  errorType = 'Сервис временно недоступен';\n  errorDetails = 'Airtable испытывает технические проблемы. Попробуйте через несколько минут.';\n  canRetry = true;\n  \n} else if (httpCode === '401' || httpCode === '403') {\n  errorType = 'Ошибка авторизации';\n  errorDetails = 'Проверьте токен Airtable в настройках бота.';\n  canRetry = false;\n  \n} else if (httpCode === '422' || message.includes('invalid request')) {\n  errorType = 'Неверный формат данных';\n  errorDetails = 'AI вернул данные в неправильном формате. Попробуйте другую ссылку.';\n  canRetry = false;\n  \n} else if (httpCode === '413' || message.includes('too large')) {\n  errorType = 'Слишком много данных';\n  errorDetails = 'Текст или резюме получились слишком длинными.';\n  canRetry = false;\n  \n} else if (message.includes('timeout')) {\n  errorType = 'Превышено время ожидания';\n  errorDetails = 'Airtable не ответил вовремя. Попробуйте еще раз.';\n  canRetry = true;\n}\n\nreturn {\n  json: {\n    ...item,\n    errorType,\n    errorDetails,\n    canRetry,\n    originalError: message\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        1072
+      ],
+      "id": "a813a749-8a3b-46b8-a191-36cd00fd31de",
+      "name": "Classify Error"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Combine Results').item.json.telegramChatId }}\n",
+        "text": "=❌ Не удалось сохранить в базу\n\n⚠️ Ошибка: {{ $json.errorType }}\n\nℹ️ {{ $json.errorDetails }}\n\n{{ $json.canRetry ? '🔄 Можно попробовать отправить повторно' : '⛔ Обратитесь к администратору' }}\n",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        1072
+      ],
+      "id": "dd74e10f-a3a5-442b-9dc6-eea6682e757a",
+      "name": "Notify Airtable Error",
+      "webhookId": "774edf85-72c5-4b1a-ab7b-5acbb49785fe",
+      "credentials": {
+        "telegramApi": {
+          "id": "HL1JsdJi0pZotGkb",
+          "name": "Librarian"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiData = $input.first().json;\nconst originalData = $('AI Agent').first().json || {};\n\n// Определяем, есть ли реальный файл\nconst isFile =\n  aiData.isPDF === true ||\n  aiData.isDOCX === true ||\n  aiData.contentType === 'PDF' ||\n  aiData.contentType === 'DOCX';\n\n// ✅ лимит Airtable long text (можно подправить под свой тип поля)\nconst AIRTABLE_LIMIT = 100000;\n\n// исходный fullText только для файлов\nconst rawFileFullText = isFile\n  ? (aiData.fullText || originalData.fullText || '')\n  : '';\n\n// ✅ fullText для записи в Airtable — с обрезкой\nconst fileFullText = rawFileFullText.length > AIRTABLE_LIMIT\n  ? rawFileFullText.substring(0, AIRTABLE_LIMIT) +\n      '\\n\\n[...ТЕКСТ ОБРЕЗАН ДО ЛИМИТА AIRTABLE]'\n  : rawFileFullText;\n\n\nreturn {\n  json: {\n    ...aiData,\n\n    originalTitle: aiData.originalTitle\n      ?? originalData.originalTitle\n      ?? originalData.articleTitle\n      ?? null,\n\n    title: aiData.title ?? null,\n    summary: aiData.summary ?? null,\n    tags: aiData.tags ?? [],\n\n    publicationDate: aiData.publicationDate\n      ?? originalData.publicationDate\n      ?? null,\n\n    source: aiData.source\n      ?? originalData.sourceUrl\n      ?? null,\n\n    isPDF: aiData.isPDF ?? originalData.isPDF ?? false,\n    rawText: aiData.rawText ?? originalData.rawText ?? null,\n\n    // ✅ в Airtable уйдёт уже обрезанный текст\n    fullText: fileFullText,\n\n      articleTitle: aiData.articleTitle\n      ?? originalData.articleTitle\n      ?? null,\n\n    sourceUrl: aiData.sourceUrl\n      ?? originalData.sourceUrl\n      ?? null,\n\n    extractedUrl: aiData.extractedUrl\n      ?? originalData.extractedUrl\n      ?? null,\n\n    // 🔹 не теряем дополнительные ссылки — важно для Airtable\n    additionalUrls: aiData.additionalUrls\n      ?? originalData.additionalUrls\n      ?? '',\n    \n    webViewLink: aiData.webViewLink\n      ?? originalData.webViewLink\n      ?? null,\n\n    fileName: aiData.fileName\n      ?? originalData.fileName\n      ?? null,\n\n    contentType: aiData.contentType\n      ?? originalData.contentType\n      ?? null,\n\n    groupId: aiData.groupId\n      ?? originalData.groupId\n      ?? null,\n\n    timestamp: aiData.timestamp\n      ?? originalData.timestamp\n      ?? null,\n\n    sender: aiData.sender\n      ?? originalData.sender\n      ?? null,\n\n    postAuthor: aiData.postAuthor\n      ?? originalData.postAuthor\n      ?? null,\n\n    senderComment: aiData.senderComment\n      ?? originalData.senderComment\n      ?? null,\n\n    originalPostText: aiData.originalPostText\n      ?? originalData.originalPostText\n      ?? null,\n  },\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        976
+      ],
+      "id": "2d72fd07-9563-4c81-846a-a3480b2d887f",
+      "name": "Combine Results"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "9jo3KpCGSOA0ub0P",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/9jo3KpCGSOA0ub0P",
+          "cachedResultName": "SUB - URL/Text Processor"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -1456,
+        1168
+      ],
+      "id": "7a3e0fef-be73-407e-8f5c-dcdc48891668",
+      "name": "Call SUB - URL/Text Processor"
+    },
+    {
+      "parameters": {
+        "jsCode": "// // Берём результат из ноды \"Get Telegram File Path\"\n// const fileInfo = $input.first().json;\n\n// // file_path приходит из Telegram getFile\n// const filePath = fileInfo.result.file_path;\n\n// // Строим прямой URL для скачивания файла\n// const fileUrl = `https://api.telegram.org/file/bot8225.../${filePath}`;\n\n// // ✅ Оригинальное имя файла из message.document.file_name\n// const original = $('ParseURLs').first().json.message?.document?.file_name;\n\n// // Если по какой-то причине нет, берём из пути\n// const fileName = original || (filePath ? filePath.split('/').pop() : 'document.pdf');\n\n// // Метаданные из ParseURLs\n// const metadata = $('ParseURLs').first().json;\n\n// return {\n//   json: {\n//    source_type: 'binary-doc', \n//     file_url: fileUrl,\n//     file_name: fileName,          // ✅ ТЕПЕРЬ НОРМАЛЬНОЕ ИМЯ\n\n//     sender: metadata.sender,\n//     postAuthor: metadata.postAuthor,\n//     senderComment: metadata.senderComment,\n//     originalPostText: metadata.originalPostText,\n//     articleTitle: metadata.articleTitle,\n//     sourceUrl: metadata.sourceUrl,\n//     groupId: metadata.groupId,\n//     contentType: metadata.contentType,\n//     rawText: metadata.rawText\n//   }\n// };\n// Исходные данные из Telegram (не из GetFile!)\nconst item = $input.first().json;\n\n// file_id и оригинальное имя\nconst fileId = item.message.document.file_id;\nconst originalName = item.message.document.file_name || 'document.docx';\n\n// Метаданные из ParseURLs\nconst meta = $('ParseURLs').first().json;\n\nreturn {\n  json: {\n    source_type: 'binary-doc',\n    file_id: fileId,\n    file_name: originalName,\n\n    sender: meta.sender,\n    postAuthor: meta.postAuthor,\n    senderComment: meta.senderComment,\n    originalPostText: meta.originalPostText,\n    articleTitle: meta.articleTitle,\n    sourceUrl: meta.sourceUrl,\n    groupId: meta.groupId,\n    contentType: meta.contentType,\n    rawText: meta.rawText\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1680,
+        976
+      ],
+      "id": "ee1a4474-8c63-45a4-bf0f-3c215ceb6bdb",
+      "name": "Build File URL"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d5a7068a-9d75-422a-871a-973ec5635f21",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "1d0602c4-98f2-44bc-8504-57fd2325870c",
+              "leftValue": "={{ $json.message.caption }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1680,
+        1184
+      ],
+      "id": "d4e17eaf-9509-4f8b-a1b7-dfc40856b807",
+      "name": "Has Text or Caption?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Универсальный парсер для всех типов сообщений\nconst item = $input.item.json;\n\n// --- 1️⃣ Собираем весь возможный текст ---\nlet text =\n  item.message?.text ||\n  item.message?.caption ||\n  '';\n\n// Очищаем для обработки\nlet cleanedText = text.replace(/\\r/g, '').trim();\n\n// --- 1b️⃣ Определяем исходный текст для Airtable (без \"голых\" ссылок) ---\n// Убираем все URL из текста\nconst textWithoutUrls = cleanedText.replace(/https?:\\/\\/[^\\s]+/gi, '').trim();\n\n// Если после удаления ссылок ничего не осталось — считаем, что \"исходного текста\" нет\n// (случай, когда сообщение = только одна или несколько ссылок)\nconst rawText = textWithoutUrls.length === 0 ? '' : cleanedText;\n\n// Дальше для парсинга ссылок и заголовков работаем с cleanedText\ntext = cleanedText;\n\n// --- 2️⃣ Извлекаем ВСЕ ссылки из текста и entities ---\n\n// 2a. Ссылки, написанные явно в тексте\nconst urlPattern = /https?:\\/\\/[^\\s]+/gi;\nlet allUrls = text.match(urlPattern) || [];\n\n// 2b. Ссылки из entities (url, text_link)\nconst entities = item.message?.entities || item.message?.caption_entities || [];\n\nfor (const entity of entities) {\n  if (entity.type === 'url') {\n    // URL прямо в тексте\n    const start = entity.offset;\n    const end = entity.offset + entity.length;\n    const urlFromText = text.substring(start, end);\n    allUrls.push(urlFromText);\n  } else if (entity.type === 'text_link' && entity.url) {\n    // Гиперссылка вида [текст](url)\n    allUrls.push(entity.url);\n  }\n}\n\n// Убираем дубликаты\nallUrls = Array.from(new Set(allUrls));\n\n\n// Фильтруем ссылки (убираем Telegram-ссылки)\nconst filteredUrls = allUrls.filter(url =>\n  !url.includes('t.me/') &&\n  url.length > 15\n);\n\n// --- 3️⃣ Определяем главную и дополнительные ссылки ---\nconst mainUrl = filteredUrls.length > 0 ? filteredUrls[0] : null;\nconst additionalUrls = filteredUrls.length > 1\n  ? filteredUrls.slice(1).join('\\n')\n  : null;\n\n// --- 3a️⃣ ИСПРАВЛЕННАЯ ЛОГИКА: Определяем Источник с правильными приоритетами ---\nlet sourceUrl = null;\nlet telegramSourceUrl = null; // Дополнительно сохраним Telegram-источник\n\n// Сначала проверяем: это форвард из канала/чата?\nif (item.message?.forward_from_chat?.username && item.message?.forward_from_message_id) {\n  // ПРИОРИТЕТ 1: Форвард из публичного Telegram-канала → ссылка на канал\n  telegramSourceUrl = `https://t.me/${item.message.forward_from_chat.username}/${item.message.forward_from_message_id}`;\n  sourceUrl = telegramSourceUrl; // Для каналов Telegram = приоритетный источник\n  \n} else if (item.message?.forward_from_chat?.title) {\n  // ПРИОРИТЕТ 2: Форвард из приватного канала → название канала\n  telegramSourceUrl = `Канал: ${item.message.forward_from_chat.title}`;\n  sourceUrl = telegramSourceUrl;\n  \n} else if (mainUrl) {\n  // ПРИОРИТЕТ 3: Внешняя ссылка (если НЕ форвард из канала)\n  sourceUrl = mainUrl;\n  \n} else if (item.message?.forward_origin?.sender_user_name) {\n  // ПРИОРИТЕТ 4: Форвард от пользователя (скрытый профиль)\n  sourceUrl = item.message.forward_origin.sender_user_name;\n  \n} else if (item.message?.forward_from?.username) {\n  // ПРИОРИТЕТ 5: Форвард от обычного пользователя\n  sourceUrl = `@${item.message.forward_from.username}`;\n  \n} else if (item.message?.forward_from?.first_name) {\n  // ПРИОРИТЕТ 6: Имя пользователя\n  sourceUrl = item.message.forward_from.first_name;\n  \n} else if (item.message?.chat?.username && item.message?.message_id) {\n  // ПРИОРИТЕТ 7: Обычное сообщение в публичном чате\n  sourceUrl = `https://t.me/${item.message.chat.username}/${item.message.message_id}`;\n}\n\n\n// --- 4️⃣ Извлекаем домен из главной ссылки ---\nlet sourceDomain = null;\nif (mainUrl) {\n  try {\n    const url = new URL(mainUrl);\n    sourceDomain = url.hostname.replace('www.', '');\n  } catch (e) {\n    sourceDomain = mainUrl.split('/')[2] || null;\n  }\n}\n\n// --- 5️⃣ Пытаемся извлечь название статьи из текста ---\nlet articleTitle = null;\n\n// ПРИОРИТЕТ 1: Команда \"save\"\nconst saveMatch = text.match(/save\\s+(.+?)(?=\\s*https?:\\/\\/|$)/i);\nif (saveMatch) {\n  articleTitle = saveMatch[1].trim();\n}\n\n// ПРИОРИТЕТ 2: Первая строка до ссылки (или первая строка текста)\nif (!articleTitle && text.length > 0) {\n  // Ищем первую непустую строку\n  const lines = text.split('\\n').filter(l => l.trim().length > 0);\n  \n  if (lines.length > 0) {\n    // Берём первую строку как заголовок\n    const firstLine = lines[0].trim();\n    \n    // Проверяем, что это не сама ссылка\n    if (!firstLine.match(/^https?:\\/\\//i)) {\n      articleTitle = firstLine;\n    } else if (lines.length > 1) {\n      // Если первая строка = ссылка, берём вторую\n      articleTitle = lines[1].trim();\n    }\n  }\n}\n\n// ПРИОРИТЕТ 3: Текст перед первой ссылкой (если есть ссылка в середине)\nif (!articleTitle && mainUrl) {\n  const beforeUrl = text.split(mainUrl)[0].trim();\n  const lines = beforeUrl.split('\\n').filter(l => l.trim().length > 0);\n  if (lines.length > 0) {\n    articleTitle = lines[lines.length - 1].trim();\n  }\n}\n\n// Очистка названия\nif (articleTitle) {\n  articleTitle = articleTitle\n    .replace(/^(forwarded from|переслано от)[^\\n]*/i, '')\n    .replace(/^[:\\-—–\\s]+|[:\\-—–\\s]+$/g, '')\n    .replace(/^[\"«']+|[\"»']+$/g, '')\n    .replace(/^[•\\-\\s]+/, '') // убираем буллеты\n    .trim();\n\n  // Ограничиваем длину\n  if (articleTitle.length > 200) {\n    articleTitle = articleTitle.substring(0, 200) + '...';\n  }\n  \n  // Если заголовок слишком короткий (<3 символов) - убираем\n  if (articleTitle.length < 3) {\n    articleTitle = null;\n  }\n}\n\n\n// --- 6️⃣ Определяем отправителя и автора ---\nlet sender = null;\nlet postAuthor = null;\nlet originalPostText = '';\nlet senderComment = '';\n\n// ЛОГИКА ОПРЕДЕЛЕНИЯ ОТПРАВИТЕЛЯ:\n// При двойной пересылке структура такая:\n// - message.from = последний пересыльщик (я)\n// - message.forward_from = промежуточный пересыльщик (Denis)\n// - message.forward_origin = оригинальный автор (A K)\n\n// ОТПРАВИТЕЛЬ - приоритет на промежуточного пересыльщика\n// Если есть forward_from → это тот, кто переслал ПЕРВЫМ (Denis)\n// Если нет → тогда тот, кто написал в группу (message.from)\n\nif (item.message?.forward_from?.first_name) {\n  // ПРИОРИТЕТ 1: Промежуточный пересыльщик (Denis F.)\n  sender = item.message.forward_from.first_name;\n  if (item.message.forward_from.username) {\n    sender += ` (@${item.message.forward_from.username})`;\n  }\n} else if (item.message?.from?.first_name) {\n  // ПРИОРИТЕТ 2: Прямой отправитель (вы)\n  sender = item.message.from.first_name;\n  if (item.message.from.username) {\n    sender += ` (@${item.message.from.username})`;\n  }\n}\n\n// АВТОР ОРИГИНАЛЬНОГО ПОСТА - только для форвардов\nconst isForwardedMessage = !!(\n  item.message?.forward_origin?.sender_user_name ||\n  item.message?.forward_from?.first_name ||\n  item.message?.forward_from_chat?.title\n);\n\nif (isForwardedMessage) {\n  // Это форвард - определяем автора оригинального поста\n  \n  if (item.message?.forward_origin?.sender_user_name) {\n    // Случай 1: Скрытый профиль (A K)\n    postAuthor = item.message.forward_origin.sender_user_name;\n    \n  } else if (item.message?.forward_origin?.sender_user?.first_name) {\n    // Случай 2: Публичный профиль в forward_origin\n    postAuthor = item.message.forward_origin.sender_user.first_name;\n    if (item.message.forward_origin.sender_user.username) {\n      postAuthor += ` (@${item.message.forward_origin.sender_user.username})`;\n    }\n    \n  } else if (item.message?.forward_from_chat?.title) {\n    // Случай 3: Форвард из канала\n    postAuthor = item.message.forward_from_chat.title;\n    \n  } else if (item.message?.forward_from?.first_name && !sender) {\n    // Случай 4: forward_from = оригинальный автор (НЕ промежуточный)\n    // Это работает, если НЕТ двойной пересылки\n    postAuthor = item.message.forward_from.first_name;\n    if (item.message.forward_from.username) {\n      postAuthor += ` (@${item.message.forward_from.username})`;\n    }\n  }\n}\n\n// РАЗЛИЧАЕМ КОММЕНТАРИЙ И ОРИГИНАЛЬНЫЙ ТЕКСТ\nif (isForwardedMessage) {\n  // Это форвард\n  const messageText = item.message?.text || item.message?.caption || '';\n  \n  // Проверяем: есть ли у forwarded message собственный текст?\n  const forwardedText = \n    item.message?.forward_origin?.text || \n    item.message?.forward_origin?.caption || \n    '';\n  \n  if (forwardedText) {\n    // Случай 1: Telegram передал оригинальный текст\n    originalPostText = forwardedText;\n    senderComment = messageText.replace(forwardedText, '').trim();\n    \n  } else if (messageText.length > 0) {\n    // Случай 2: Есть текст, но непонятно — это комментарий или оригинал?\n    // Эвристика: если текст содержит ссылки → скорее всего оригинал поста\n    \n    if (filteredUrls.length > 0) {\n      // Есть ссылки → вероятно, это текст из оригинального поста\n      originalPostText = messageText;\n      senderComment = '';\n    } else {\n      // Нет ссылок → вероятно, комментарий отправителя\n      originalPostText = '';\n      senderComment = messageText;\n    }\n    \n  } else {\n    // Случай 3: Форвард без текста (например, только медиа)\n    originalPostText = '';\n    senderComment = '';\n  }\n  \n} else {\n  // Это НЕ форвард — весь текст это сообщение отправителя\n  senderComment = item.message?.text || item.message?.caption || '';\n  originalPostText = '';\n}\n\n\n\n// --- 7️⃣ ОПРЕДЕЛЯЕМ ТИП МАТЕРИАЛА ---\nlet contentType = null;\n\nconst hasPDF = item.message?.document?.mime_type === 'application/pdf';\nconst hasPhoto = !!item.message?.photo;\nconst hasVideo = !!item.message?.video;\nconst hasDocument = !!item.message?.document && !hasPDF;\nconst hasText = !!(item.message?.text || item.message?.caption);\nconst hasLink = filteredUrls.length > 0;\n\nif (hasPDF) {\n  contentType = 'PDF';\n} else if (isForwardedMessage && (hasDocument || hasPhoto || hasVideo)) {\n  contentType = 'Пост + файл';\n} else if (isForwardedMessage) {\n  contentType = 'Пост Telegram';\n} else if (hasLink && hasText) {\n  contentType = 'Смешанный';\n} else if (hasLink && !hasText) {\n  contentType = 'Ссылка';\n} else if (hasText) {\n  contentType = 'Пост Telegram';\n} else {\n  contentType = 'Смешанный';\n}\n\n// --- 8️⃣ Возвращаем обогащённые данные ---\nreturn {\n  json: {\n    ...item,\n\n    // 🔹 Ссылка на источник (ИСПРАВЛЕНО: приоритет внешней ссылке)\n    sourceUrl,\n\n     // 🔹 Telegram-источник (отдельно, если нужно)\n    telegramSourceUrl,\n\n    // 🔹 Первая внешняя ссылка (для Jina и анализа статьи)\n    extractedUrl: mainUrl,\n    additionalUrls,\n\n    // 🔹 Исходный текст сообщения\n    rawText,\n\n    // 🔹 Метаданные\n    articleTitle,\n    sourceDomain,\n    messageDate: item.message?.date || null,\n    sender: sender,\n    \n    // 🔹 Группировка\n    groupId: item._groupId || null,\n    timestamp: item._timestamp || null,\n    \n    // 🔹 Авторы и комментарии\n    postAuthor: postAuthor,\n    senderComment: senderComment,\n    originalPostText: originalPostText,\n    \n    // 🔹 Тип материала\n    contentType: contentType\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2800,
+        1168
+      ],
+      "id": "4b71c3b8-c4c5-4c79-8516-c654861c5aa9",
+      "name": "ParseURLs"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "KpYuUaWjAD59HAom",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/KpYuUaWjAD59HAom",
+          "cachedResultName": "SUB - File Processor"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "source_type": "={{ $json.source_type }}",
+            "file_name": "={{ $json.file_name }}",
+            "file_id": "={{ $json.file_id }}",
+            "rawText": "={{ $json.rawText || '' }}",
+            "sender": "={{ $json.sender || '' }}",
+            "postAuthor": "={{ $json.postAuthor || '' }}",
+            "senderComment": "={{ $json.senderComment || '' }}",
+            "originalPostText": "={{ $json.originalPostText || '' }}",
+            "groupId": "={{ $json.groupId || '' }}",
+            "sourceUrl": "={{ $json.sourceUrl || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "source_type",
+              "displayName": "source_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "file_id",
+              "displayName": "file_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "file_name",
+              "displayName": "file_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "rawText",
+              "displayName": "rawText",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "sender",
+              "displayName": "sender",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "postAuthor",
+              "displayName": "postAuthor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "senderComment",
+              "displayName": "senderComment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "originalPostText",
+              "displayName": "originalPostText",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "sourceUrl",
+              "displayName": "sourceUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "groupId",
+              "displayName": "groupId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -1456,
+        976
+      ],
+      "id": "65c9b3fc-d0c8-403d-aa72-dda8d0e72c2e",
+      "name": "Call SUB - File Processor"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1ea4bb7-2639-4194-b488-8d1ea4bf65c0",
+              "leftValue": "={{ $json.message.document.mime_type }}",
+              "rightValue": "=application/pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "67f8dfb3-826a-476f-98ae-1800ff2078fa",
+              "leftValue": "={{ $json.message.document.mime_type }}",
+              "rightValue": "=application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "c3487d3c-b527-446b-ab23-90ca95ac51f3",
+              "leftValue": "={{ $json.message.document.mime_type }}",
+              "rightValue": "=application/msword",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2128,
+        1072
+      ],
+      "id": "3e6e0867-3634-45e4-848b-2fb04b477eb9",
+      "name": "Has Document?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// // ✅ Простое решение - берём first item (который пришёл)\n// const incoming = $input.first().json;\n// const base = $('ParseURLs').first().json;\n\n// return [{\n//   json: {\n//     ...base,\n    \n//     // Берём что пришло из SUB-workflow\n//     fullText: incoming.fullText || incoming.rawText || base.rawText || '',\n//     rawText: incoming.rawText || base.rawText || '',\n    \n//     extractedUrl: incoming.extractedUrl || base.extractedUrl || null,\n//     sourceUrl: incoming.sourceUrl || base.sourceUrl || null,\n//     articleTitle: incoming.articleTitle || base.articleTitle || null,\n    \n//     // Файловые данные\n//     webViewLink: incoming.webViewLink || '',\n//     fileName: incoming.fileName || '',\n//     isPDF: incoming.isPDF || false,\n//     isDOCX: incoming.isDOCX || false,\n//     contentType: incoming.contentType || 'Текст'\n//   }\n// }];\nconst incoming = $input.first().json;\nconst base = $('ParseURLs').first().json;\n\n// признак «это файл»\nconst isFile =\n  incoming.isPDF === true ||\n  incoming.isDOCX === true ||\n  incoming.contentType === 'PDF' ||\n  incoming.contentType === 'DOCX';\n\n// fullText только для файлов\nconst fullText = isFile\n  ? (incoming.fullText || incoming.rawText || base.rawText || '')\n  : '';\n\n// для всех кейсов rawText — текст поста/ввода\nconst rawText = incoming.rawText || base.rawText || '';\n\nreturn [{\n  json: {\n    ...base,\n\n    // текст\n    fullText,\n    rawText,\n\n        // источники\n    extractedUrl: incoming.extractedUrl || base.extractedUrl || null,\n    sourceUrl: incoming.sourceUrl || base.sourceUrl || null,\n    articleTitle: incoming.articleTitle || base.articleTitle || null,\n\n    // файлы / тип\n    webViewLink: incoming.webViewLink || '',\n    fileName: incoming.fileName || '',\n    isPDF: incoming.isPDF || false,\n    isDOCX: incoming.isDOCX || false,\n    contentType: incoming.contentType || 'Текст',\n\n    // метаданные как были\n    groupId: base.groupId ?? incoming.groupId ?? null,\n    timestamp: base.timestamp ?? incoming.timestamp ?? null,\n    sender: base.sender ?? incoming.sender ?? '',\n    postAuthor: base.postAuthor ?? incoming.postAuthor ?? '',\n    senderComment: base.senderComment ?? incoming.senderComment ?? '',\n    originalPostText: base.originalPostText ?? incoming.originalPostText ?? ''\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        1072
+      ],
+      "id": "94909efe-ad6e-4658-879c-5cb15507445a",
+      "name": "Combine Content"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1c26e70f-a3e9-424c-8b60-8b480da250a4",
+              "leftValue": "={{ !!$json.message.document }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1904,
+        976
+      ],
+      "id": "d8f5bf3f-98a6-4837-9efe-bccf17005415",
+      "name": "If Has Document"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1232,
+        1072
+      ],
+      "id": "6d709069-7f8a-423a-bc7d-9ff3c3fc736e",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// const item = $input.first().json;\n\n// const fullText = item.fullText || item.rawText || '';\n// const maxLength = 15000;\n\n// return [{\n//   json: {\n//     // Для AI - обрезанный текст\n//     rawText: fullText.substring(0, maxLength),\n    \n//     // Сохраняем оригинал для восстановления\n//     _originalFullText: fullText,\n    \n//     // ВАЖНО: передаем ВСЕ метаданные\n//     extractedUrl: item.extractedUrl || null,\n//     additionalUrls: item.additionalUrls || null,\n//     sourceUrl: item.sourceUrl || '',\n//     articleTitle: item.articleTitle || null,\n    \n//     // ✅ Добавляем недостающие поля:\n//     webViewLink: item.webViewLink || '',\n//     fileName: item.fileName || '',\n//     postAuthor: item.postAuthor || '',\n//     senderComment: item.senderComment || '',\n//     originalPostText: item.originalPostText || '',  // ❗Текст ИЗ Telegram, НЕ из файла\n//     contentType: item.contentType || '',\n//     groupId: item.groupId || '',\n//     sender: item.sender || '',\n    \n//     // Флаги для AI\n//     isPDF: item.isPDF || false,\n//     isDOCX: item.isDOCX || false,\n//     truncated: fullText.length > maxLength,\n//     textLength: fullText.length\n//   }\n// }];\n\n// const item = $input.first().json;\n\n// const fullText = item.fullText || item.rawText || '';\n// const maxLength = 15000;\n\n// return [{\n//   json: {\n//     // сначала сохраняем ВСЁ, что пришло до этой ноды\n//     ...item,\n\n//     // затем переопределяем то, что нужно для агента\n//     rawText: fullText.substring(0, maxLength),\n//     _originalFullText: fullText,\n\n//     // флаги\n//     isPDF: item.isPDF || false,\n//     isDOCX: item.isDOCX || false,\n//     truncated: fullText.length > maxLength,\n//     textLength: fullText.length,\n//   }\n// }];\nconst item = $input.first().json;\n\n// ✅ ТОЛЬКО текст для агента (rawText или fullText из файлов)\nconst agentText = item.fullText || item.rawText || '';\nconst maxLength = 15000;\n\nreturn [{\n  json: {\n    // ✅ ДЛЯ АГЕНТА - только текст + минимальные метаданные\n    rawText: agentText.substring(0, maxLength),\n    _originalFullText: agentText,\n    \n    // флаги (нужны агенту для контекста)\n    isPDF: !!item.isPDF,\n    isDOCX: !!item.isDOCX,\n    contentType: item.contentType || 'Текст',\n    truncated: agentText.length > maxLength,\n    textLength: agentText.length,\n\n    // ✅ ВСЕ метаданные (НЕ для агента, для Airtable)\n    articleTitle: item.articleTitle || null,\n    originalTitle: item.originalTitle || null,\n    extractedUrl: item.extractedUrl || null,\n    sourceUrl: item.sourceUrl || null,\n    publicationDate: item.publicationDate || null,\n    webViewLink: item.webViewLink || '',\n    fileName: item.fileName || '',\n    postAuthor: item.postAuthor || '',\n    sender: item.sender || '',\n    groupId: item.groupId || '',\n    senderComment: item.senderComment || '',\n    originalPostText: item.originalPostText || '',\n    additionalUrls: item.additionalUrls || null,\n\n       // другие поля, которые могут прийти из саба\n    pdfUrl: item.pdfUrl || null,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        1072
+      ],
+      "id": "637976e0-9ff1-4404-bada-ec91434b1066",
+      "name": "Prepare for AI"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "ParseAIOutput": {
+      "main": [
+        [
+          {
+            "node": "Combine Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Таблица Психология ИИ": {
+      "main": [
+        [
+          {
+            "node": "Notify Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Classify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "ParseAIOutput",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "ParseURLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter File Types": {
+      "main": [
+        [
+          {
+            "node": "Is Format Supported?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Format Supported?": {
+      "main": [
+        [
+          {
+            "node": "Has Document?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Unsupported Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Error": {
+      "main": [
+        [
+          {
+            "node": "Notify Airtable Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Results": {
+      "main": [
+        [
+          {
+            "node": "Таблица Психология ИИ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call SUB - URL/Text Processor": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build File URL": {
+      "main": [
+        [
+          {
+            "node": "Call SUB - File Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Text or Caption?": {
+      "main": [
+        [
+          {
+            "node": "Call SUB - URL/Text Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseURLs": {
+      "main": [
+        [
+          {
+            "node": "Filter File Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call SUB - File Processor": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Document?": {
+      "main": [
+        [
+          {
+            "node": "If Has Document",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Text or Caption?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Content": {
+      "main": [
+        [
+          {
+            "node": "Prepare for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Has Document": {
+      "main": [
+        [
+          {
+            "node": "Build File URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Combine Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for AI": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b1956c37-00f5-41e1-9c3c-736fbb0b029a",
+  "meta": {
+    "instanceId": "fdd2dc7d9e7db65a39b1633b599b733b59fe44ee3381c536e1d281bfd55509b5"
+  },
+  "id": "VCmjmu1A3OXaRMYV",
+  "tags": []
+}
